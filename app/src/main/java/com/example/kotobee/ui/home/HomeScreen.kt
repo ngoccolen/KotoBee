@@ -1,63 +1,47 @@
 package com.example.kotobee.ui.home
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.kotobee.R
-import com.example.kotobee.ui.lessons.ProfileScreen
-import com.example.kotobee.ui.practice.PracticeScreen
+import com.example.kotobee.ui.lessons.LearningScreen
+import com.example.kotobee.ui.lessons.vocab.DeckListScreen
+import com.example.kotobee.ui.profile.ProfileScreen
 
-// Màu sắc tươi tươi mang hơi hướng nhật bản
-val JapaneseIndigo = Color(0xFF3F51B5) // Xanh đậm thanh lịch
-val JapaneseIndigoLight = Color(0xFFE8EAF6)
-val SakuraPink = Color(0xFFF06292)
-val JapanesePastelBackground = Color(0xFFFFFEFA)
-val JapanesePastelPrimary = Color(0xFF81D4FA)
-val JapanesePastelPrimaryContainer = Color(0xFFE3F2FD)
-val JapanesePastelSecondary = Color(0xFFF8BBD0)
-val JapanesePastelTertiary = Color(0xFFFFF9C4)
-val JapanesePastelSuccess = Color(0xFFA5D6A7)
-val JapanFlagRed = Color(0xFFBC002D)
-val DarkGray = Color(0xFF212121)
-val GrayText = Color(0xFF616161)
-val LightGrayBorder = Color(0xFFE0E0E0)
-val ProgressYellow = Color(0xFFFFC107)
+val ThemeBackground = Color(0xFFFFFDFD) // Nền trắng ngà ánh hồng
+val CardBorderColor = Color(0xFFFFCDD2) // Viền card hồng nhạt
+val ProgressPrimary = Color(0xFFE53935) // Đỏ sậm làm màu chủ đạo cho thanh tiến trình
+val ProgressTrack = Color(0xFFFFEBEE) // Màu nền của thanh tiến trình (hồng siêu nhạt)
+val TextDark = Color(0xFF333333)
+val TextGray = Color(0xFF757575)
 
 @Composable
 fun MainScreen(navController: NavController) {
@@ -65,14 +49,14 @@ fun MainScreen(navController: NavController) {
     val items = listOf(
         Triple("Trang chủ", Icons.Default.Home, 0),
         Triple("Học tập", Icons.Default.MenuBook, 1),
-        Triple("Luyện tập", Icons.Default.Headphones, 2),
+        Triple("Quét ảnh", Icons.Default.PhotoCamera, 2),
         Triple("Hồ sơ", Icons.Default.Person, 3)
     )
 
     Scaffold(
         bottomBar = {
             NavigationBar(
-                containerColor = JapanesePastelBackground,
+                containerColor = ThemeBackground,
                 tonalElevation = 8.dp
             ) {
                 items.forEach { item ->
@@ -83,7 +67,7 @@ fun MainScreen(navController: NavController) {
                             Icon(
                                 imageVector = item.second,
                                 contentDescription = item.first,
-                                tint = if (selectedItem == item.third) JapanesePastelPrimary else Color.Gray
+                                tint = if (selectedItem == item.third) ProgressPrimary else Color.Gray
                             )
                         },
                         label = {
@@ -91,13 +75,13 @@ fun MainScreen(navController: NavController) {
                                 item.first,
                                 fontSize = 11.sp,
                                 fontWeight = if (selectedItem == item.third) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedItem == item.third) JapanesePastelPrimary else Color.Gray
+                                color = if (selectedItem == item.third) ProgressPrimary else Color.Gray
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = JapanesePastelPrimary,
-                            selectedTextColor = JapanesePastelPrimary,
-                            indicatorColor = JapanesePastelPrimaryContainer
+                            selectedIconColor = ProgressPrimary,
+                            selectedTextColor = ProgressPrimary,
+                            indicatorColor = CardBorderColor
                         )
                     )
                 }
@@ -107,15 +91,10 @@ fun MainScreen(navController: NavController) {
         when (selectedItem) {
             0 -> HomeScreen(navController = navController, modifier = Modifier.padding(padding))
             1 -> LearningScreen(navController = navController, modifier = Modifier.padding(padding))
-            2 -> PracticeScreen(modifier = Modifier.padding(padding))
+            // ĐÃ SỬA: Gọi màn hình VisionFlashcardScreen và bọc trong Box có padding để không bị thanh điều hướng che mất
+            2 -> Box(modifier = Modifier.padding(padding)) {  }
             3 -> Box(modifier = Modifier.padding(padding)) {
                 ProfileScreen(navController = navController)
-            }
-            else -> Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Nội dung ${items[selectedItem].first}", fontSize = 20.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -128,510 +107,383 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val userProfile by viewModel.userProfile.collectAsState()
+    val dailyTasks by viewModel.dailyTasks.collectAsState()
+
+    var showAddTaskDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadUserData()
     }
 
+    if (showAddTaskDialog) {
+        AddTaskDialog(
+            onDismiss = { showAddTaskDialog = false },
+            onConfirm = { title, target ->
+                viewModel.addNewDailyTask(title, target)
+                showAddTaskDialog = false
+            }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(JapanesePastelBackground)
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Phần Header có nền màu
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // Lớp nền xanh bo cong phía dưới
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(
-                        color = JapaneseIndigo,
-                        shape = RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp)
-                    )
-            )
-
-            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                HeaderSection(userProfile)
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Thẻ học tiếp tục đè lên phần nền
-                ContinueLearningCard(
-                    lessonTitle = "Bài 5: Thời gian",
-                    lessonSubtitle = "Chương 2: Giờ và Phút",
-                    lastPracticedDays = 3,
-                    progress = 0.65f,
-                    onClick = { /* Điều hướng */ }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Phần nội dung phía dưới
-        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-            Text(
-                text = "Tiến độ kỹ năng",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = DarkGray
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            SkillsGrid(navController = navController)
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-@Composable
-fun HeaderSection(userProfile: UserProfile) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Bên trái: Avatar và Thông tin
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Avatar giả định
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(Color.White, CircleShape)
-                    .border(2.dp, SakuraPink, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = JapaneseIndigo,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Text(
-                    text = "Chào bạn, ${userProfile.username}",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "Cấp độ: ${userProfile.jlpt_level}",
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-            }
-        }
-
-        // Bên phải: Tim và Chuông
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Heart indicator
-            Row(
-                modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(20.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = SakuraPink,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("5", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Icon(
-                imageVector = Icons.Default.Notifications,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun ContinueLearningCard(
-    lessonTitle: String,
-    lessonSubtitle: String,
-    lastPracticedDays: Int,
-    progress: Float,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Nội dung chữ bên trái
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Hãy bắt đầu học thôi!",
-                        color = JapaneseIndigo,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = lessonTitle,
-                        color = DarkGray,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = lessonSubtitle,
-                        color = GrayText,
-                        fontSize = 14.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Luyện tập $lastPracticedDays ngày trước",
-                        color = Color.LightGray,
-                        fontSize = 11.sp
-                    )
-                }
-
-                // Hình minh họa bên phải (Giả định bằng Box/Icon)
-                Box(
-                    modifier = Modifier
-                        .size(90.dp)
-                        .background(JapaneseIndigoLight, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Chỗ này sau này bạn thay bằng Image nhé
-                    Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        tint = JapaneseIndigo,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Thanh tiến trình và Nút Tiếp tục
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(10.dp)
-                        .clip(CircleShape),
-                    color = JapaneseIndigo,
-                    trackColor = JapaneseIndigoLight
-                )
-
-                Spacer(modifier = Modifier.width(20.dp))
-
-                Button(
-                    onClick = onClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = JapaneseIndigo),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
-                ) {
-                    Text("Tiếp tục", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-@Composable
-fun SkillsGrid(navController: NavController) {
-    // Định nghĩa vài mã màu xanh pastel để đan xen cho đẹp mắt
-    val BluePastel1 = Color(0xFF64B5F6)
-    val BluePastel2 = Color(0xFF4FC3F7)
-    val BluePastel3 = Color(0xFF81D4FA)
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp) // Tự động tạo khoảng cách 16.dp giữa các Card
-    ) {
-        SkillCard(
-            title = "Nói",
-            progress = 90,
-            imageRes = R.drawable.jp_speaking,
-            backgroundColor = BluePastel1,
-            onClick = { navController.navigate("speaking_practice") }
-        )
-
-        SkillCard(
-            title = "Đọc",
-            progress = 30, // visual
-            imageRes = R.drawable.jp_reading,
-            backgroundColor = BluePastel2,
-            onClick = { navController.navigate("reading_practice") }
-        )
-
-        SkillCard(
-            title = "Nghe",
-            progress = 80, // visual
-            imageRes = R.drawable.jp_listening,
-            backgroundColor = BluePastel3,
-            onClick = { navController.navigate("listening_practice") }
-        )
-
-        SkillCard(
-            title = "Viết",
-            progress = 50, // visual
-            imageRes = R.drawable.jp_writing,
-            backgroundColor = BluePastel1,
-            onClick = { navController.navigate("writing_practice") }
-        )
-
-        SkillCard(
-            title = "Từ vựng",
-            progress = 50, // visual
-            imageRes = R.drawable.jp_vocabulary,
-            backgroundColor = BluePastel2,
-            onClick = { navController.navigate("deck_list") }
-        )
-
-        SkillCard(
-            title = "Ngữ pháp",
-            progress = 50, // visual
-            imageRes = R.drawable.jp_grammar,
-            backgroundColor = BluePastel3,
-            onClick = { navController.navigate("grammar_dashboard") }
-        )
-    }
-}
-@Composable
-fun SkillCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    progress: Int,
-    imageRes: Int,
-    backgroundColor: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp), // Vẫn giữ bo góc cho toàn bộ Card
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 16.dp)
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Tiến độ",
-                        fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                    Text(
-                        text = "$progress%",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Thanh tiến trình
-                LinearProgressIndicator(
-                    progress = { progress / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    color = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.3f)
-                )
-            }
-
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(80.dp) // Đã vứt phần .clip() đi
-            )
-        }
-    }
-}
-@Composable
-fun LearningScreen(navController: NavController, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(JapanesePastelBackground)
+            .background(ThemeBackground)
             .padding(horizontal = 20.dp)
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Khám phá bài học",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Black,
-            color = JapanesePastelPrimary
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Lựa chọn kỹ năng bạn muốn trau dồi hôm nay.",
-            fontSize = 15.sp,
-            color = GrayText
-        )
+
+        // --- Header (Tên người dùng) ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(text = "Xin chào,", fontSize = 16.sp, color = TextGray)
+                Text(
+                    text = userProfile.username.ifEmpty { "Người học" },
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextDark
+                )
+            }
+            Box(
+                modifier = Modifier.size(50.dp).background(Color.White, CircleShape).border(2.dp, CardBorderColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Person, contentDescription = "Avatar", tint = ProgressPrimary)
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Danh sách các module học tập đã được gán route, cập nhật màu pastel
-        LearningModuleCard(
-            title = "Từ vựng",
-            subtitle = "Học từ mới qua Flashcard",
-            icon = Icons.Default.Style,
-            backgroundColor = JapanesePastelTertiary.copy(alpha = 0.5f),
-            iconColor = ProgressYellow,
-            onClick = { navController.navigate("deck_list") }
+        // --- 1. Thẻ Gradient Ôn tập tiếp ---
+        ContinueLearningGradientCard()
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Nhiệm vụ", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = TextDark, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // --- 2. Tiến trình Level (N5 -> N4) ---
+        LevelProgressSection(userProfile)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- 3. Nhiệm vụ hằng ngày ---
+        DailyTasksSection(
+            tasks = dailyTasks,
+            onAddTaskClick = { showAddTaskDialog = true },
+            onTaskClick = { task -> viewModel.incrementTaskProgress(task) }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        LearningModuleCard(
-            title = "Ngữ pháp",
-            subtitle = "Sắp xếp câu và học cấu trúc",
-            icon = Icons.Default.Book,
-            backgroundColor = Color(0xFFE8EAF6),
-            iconColor = Color(0xFF3F51B5),
-            onClick = { navController.navigate("grammar_practice") }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LearningModuleCard(
-            title = "Luyện nghe",
-            subtitle = "Hội thoại thực tế tại quán Cafe",
-            icon = Icons.Default.Headphones,
-            backgroundColor = Color(0xFFF3E5F5),
-            iconColor = Color(0xFF9C27B0),
-            onClick = { navController.navigate("listening_practice") }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LearningModuleCard(
-            title = "Đọc hiểu",
-            subtitle = "Cuộc sống ở Tokyo",
-            icon = Icons.Default.MenuBook,
-            backgroundColor = Color(0xFFE0F7FA),
-            iconColor = Color(0xFF00BCD4),
-            onClick = { navController.navigate("reading_practice") }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        LearningModuleCard(
-            title = "Viết Kanji",
-            subtitle = "Luyện nét chữ Hán trên Canvas",
-            icon = Icons.Default.Create,
-            backgroundColor = Color(0xFFFBE9E7),
-            iconColor = Color(0xFFFF5722),
-            onClick = { navController.navigate("writing_practice") }
-        )
+        // --- 4. Tiến độ từng kỹ năng (Mỗi kỹ năng 1 hàng, thanh linear) ---
+        SkillsProgressList(userProfile.skills_progress)
 
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
-fun LearningModuleCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    backgroundColor: Color,
-    iconColor: Color,
-    onClick: () -> Unit
-) {
-    Card(
+fun ContinueLearningGradientCard() {
+    val gradientBrush = Brush.horizontalGradient(
+        colors = listOf(Color(0xFFFF8A80), Color(0xFFE53935)) // Đỏ hồng sang đỏ đậm
+    )
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .height(130.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(gradientBrush)
+            .clickable { /* TODO: Chuyển đến bài học */ }
     ) {
         Row(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.jp_reading),
+                contentDescription = "Học tiếp",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(90.dp)
+            )
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier.size(50.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        progress = { 0.65f },
+                        modifier = Modifier.fillMaxSize(),
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.3f),
+                        strokeWidth = 4.dp,
+                        strokeCap = StrokeCap.Round
+                    )
+                    Text("1/30", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text("Ôn tập ngay", color = ProgressPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LevelProgressSection(userProfile: UserProfile) {
+    val animatedProgress by animateFloatAsState(targetValue = userProfile.level_progress, animationSpec = tween(1000))
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, CardBorderColor),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = CircleShape,
-                color = Color.White,
-                modifier = Modifier.size(56.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = iconColor,
-                    modifier = Modifier.padding(14.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    fontSize = 18.sp,
+                    text = "Mục tiêu: Lên ${userProfile.next_level}",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DarkGray
+                    color = TextDark
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 13.sp,
-                    color = GrayText
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                    color = ProgressPrimary,
+                    trackColor = ProgressTrack,
+                    strokeCap = StrokeCap.Round
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(userProfile.current_level, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ProgressPrimary)
+                    Text("${(userProfile.level_progress * 100).toInt()}%", fontSize = 12.sp, color = TextGray)
+                }
             }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Đi tới",
-                tint = iconColor.copy(alpha = 0.7f),
-                modifier = Modifier.size(28.dp)
+
+            Spacer(modifier = Modifier.width(16.dp))
+            Image(
+                painter = painterResource(id = R.drawable.jp_grammar),
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                contentScale = ContentScale.Fit
             )
         }
     }
+}
+
+@Composable
+fun DailyTasksSection(tasks: List<DailyTask>, onAddTaskClick: () -> Unit, onTaskClick: (DailyTask) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, CardBorderColor),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Nhiệm vụ hằng ngày", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = TextDark)
+                IconButton(onClick = onAddTaskClick, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Rounded.Add, contentDescription = "Thêm", tint = ProgressPrimary)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (tasks.isEmpty()) {
+                Text("Chưa có nhiệm vụ nào. Nhấn '+' để thêm!", color = TextGray, fontSize = 14.sp)
+            } else {
+                tasks.forEachIndexed { index, task ->
+                    TaskItemUI(task, onClick = { onTaskClick(task) })
+                    if (index < tasks.size - 1) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = ProgressTrack)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskItemUI(task: DailyTask, onClick: () -> Unit) {
+    val progressRatio = if (task.target > 0) (task.current.toFloat() / task.target.toFloat()).coerceIn(0f, 1f) else 0f
+    val animatedProgress by animateFloatAsState(targetValue = progressRatio, animationSpec = tween(800))
+    val percent = (progressRatio * 100).toInt()
+
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = task.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextGray)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                color = ProgressPrimary,
+                trackColor = ProgressTrack,
+                strokeCap = StrokeCap.Round
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("${task.current}/${task.target}", fontSize = 12.sp, color = TextGray)
+                Text("$percent%", fontSize = 12.sp, color = TextGray)
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Image(
+            painter = painterResource(id = R.drawable.jp_vocabulary),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(50.dp)
+        )
+    }
+}
+
+// --- THAY ĐỔI MỚI Ở ĐÂY: Dạng List nằm ngang ---
+@Composable
+fun SkillsProgressList(skillsMap: Map<String, Float>) {
+    Text("Tiến độ kỹ năng", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = TextDark)
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        skillsMap.forEach { (skillName, progress) ->
+            SkillHorizontalCard(skillName = skillName, progress = progress)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+fun SkillHorizontalCard(skillName: String, progress: Float) {
+    val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = tween(1000))
+
+    // Tự động phân loại ảnh dựa theo tên kỹ năng
+    val imageRes = when (skillName.lowercase()) {
+        "từ vựng" -> R.drawable.jp_vocabulary
+        "ngữ pháp" -> R.drawable.jp_grammar
+        "nghe hiểu", "nghe" -> R.drawable.jp_listening // Nếu bạn có file ảnh jp_listening, nếu không nó sẽ mặc định dùng jp_reading
+        "đọc hiểu", "đọc" -> R.drawable.jp_reading
+        "viết", "hán tự" -> R.drawable.jp_writing // Nếu có
+        else -> R.drawable.jp_reading
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { /* TODO: Chuyển đến màn học kĩ năng tương ứng */ },
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, CardBorderColor),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Ảnh minh họa to rõ ràng bên trái
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = skillName,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(70.dp) // Cỡ to theo yêu cầu
+            )
+
+            Spacer(modifier = Modifier.width(20.dp))
+
+            // Thanh tiến trình và Tên bên phải
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = skillName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                    Text(text = "${(progress * 100).toInt()}%", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = ProgressPrimary)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                    color = ProgressPrimary,
+                    trackColor = ProgressTrack,
+                    strokeCap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AddTaskDialog(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit) {
+    var title by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Thêm nhiệm vụ hằng ngày", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Tên nhiệm vụ (VD: Học 5 từ mới)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = target,
+                    onValueChange = { target = it },
+                    label = { Text("Mục tiêu (Số lượng, VD: 5)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val targetInt = target.toIntOrNull() ?: 1
+                    if (title.isNotBlank()) onConfirm(title, targetInt)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = ProgressPrimary)
+            ) {
+                Text("Thêm", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy", color = TextGray) }
+        }
+    )
 }

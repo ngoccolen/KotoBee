@@ -1,24 +1,33 @@
 [versions]
-agp = "9.1.0"
-coreKtx = "1.18.0"
+agp = "8.5.2"
+# Đã hạ cấp các thư viện AndroidX xuống bản tương thích với AGP 8.5.2
+coreKtx = "1.13.1"
+lifecycleRuntimeKtx = "2.8.4"
+activityCompose = "1.9.0"
+composeBom = "2024.04.01"
+navigationRuntimeKtx = "2.7.7"
+navigationCompose = "2.7.7"
+navigationCommonKtx = "2.7.7"
+material3 = "1.2.1"
+foundation = "1.6.6"
+runtime = "1.6.6"
+uiText = "1.6.6"
+pagingCommon = "3.3.0"
+kotlinxSerialization = "1.6.3"
+
+# Các thư viện khác giữ nguyên hoặc chỉnh nhẹ cho ổn định
 junit = "4.13.2"
-junitVersion = "1.3.0"
-espressoCore = "3.7.0"
-lifecycleRuntimeKtx = "2.10.0"
-activityCompose = "1.13.0"
-kotlin = "2.2.10"
-composeBom = "2024.09.00"
-navigationRuntimeKtx = "2.9.7"
-navigationCompose = "2.9.7"
-navigationCommonKtx = "2.9.7"
-material3 = "1.4.0"
-foundation = "1.10.6"
+junitVersion = "1.1.5"
+espressoCore = "3.5.1"
+kotlin = "2.0.21"
 firebaseAnnotations = "17.0.0"
-googleGmsGoogleServices = "4.4.4"
+googleGmsGoogleServices = "4.4.2"
 firebaseBom = "34.12.0"
-runtime = "1.10.6"
-foundationVersion = "1.11.0"
-uiText = "1.11.0"
+translate = "17.0.3"
+media3Session = "1.3.1"
+firebaseStorage = "21.0.0"
+room = "2.6.1"
+ksp = "2.0.21-1.0.27"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -45,10 +54,22 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
-androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
 androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
+translate = { group = "com.google.mlkit", name = "translate", version.ref = "translate" }
+androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3Session" }
+firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
+androidx-paging-common = { group = "androidx.paging", name = "paging-common", version.ref = "pagingCommon" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+# Đã dọn dẹp các bản duplicate của Room
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

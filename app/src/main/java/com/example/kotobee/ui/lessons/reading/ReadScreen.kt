@@ -1,21 +1,25 @@
 package com.example.kotobee.ui.lessons.reading
 
-import android.widget.Toast
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,323 +27,420 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.kotobee.data.model.ReadingLesson
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.AsyncImage
 import com.example.kotobee.data.model.VocabDetail
 
+val KotoBeeOrange = Color(0xFFF57C00)
+val KotoBeeSurface = Color(0xFFF9FAFB)
+val TextDark = Color(0xFF1F2937)
+
+// ==========================================
+// 1. MÀN HÌNH DANH SÁCH BÀI BÁO
+// ==========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReadingPracticeScreen(viewModel: ReadingViewModel = viewModel()) {
-    val uiState by viewModel.uiState.collectAsState()
-    val selectedVocab by viewModel.selectedVocab.collectAsState()
-    val saveStatus by viewModel.saveStatus.collectAsState()
+fun NewsListScreen(
+    viewModel: ReadingViewModel,
+    onArticleClick: (String) -> Unit,
+    onBackClick: () -> Unit
+) {
+    val filteredNewsList by viewModel.filteredNewsList.collectAsState()
+    val selectedLevel by viewModel.selectedLevel.collectAsState()
 
+    val levels = listOf("Tất cả", "Yêu thích", "Dễ", "Trung bình", "Khó")
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Tin Tức NHK", fontWeight = FontWeight.ExtraBold, color = TextDark) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = KotoBeeSurface),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        // Đã sửa lại thành Icons.Filled cho ArrowBackIosNew để hết báo đỏ
+                        Icon(Icons.Filled.ArrowBackIosNew, contentDescription = "Back", tint = TextDark)
+                    }
+                }
+            )
+        },
+        containerColor = KotoBeeSurface
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(levels) { level ->
+                    FilterChip(
+                        selected = selectedLevel == level,
+                        onClick = { viewModel.setFilterLevel(level) },
+                        label = { Text(level, fontWeight = FontWeight.Bold) },
+                        leadingIcon = if (level == "Yêu thích") {
+                            {
+                                Icon(
+                                    imageVector = Icons.Filled.Favorite,
+                                    contentDescription = "Yêu thích",
+                                    tint = if (selectedLevel == level) KotoBeeOrange else Color.Gray,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = KotoBeeOrange.copy(alpha = 0.2f),
+                            selectedLabelColor = KotoBeeOrange
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderColor = if (selectedLevel == level) KotoBeeOrange else Color.LightGray,
+                            enabled = true,
+                            selected = selectedLevel == level
+                        )
+                    )
+                }
+            }
+
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (filteredNewsList.isEmpty()) {
+                    item {
+                        Text(
+                            text = if (selectedLevel == "Yêu thích") "Bạn chưa có bài báo yêu thích nào." else "Chưa có bài báo nào ở cấp độ này.",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 32.dp).align(Alignment.CenterHorizontally)
+                        )
+                    }
+                }
+
+                items(filteredNewsList) { article ->
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onArticleClick(article.newsId) },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        color = KotoBeeOrange.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = article.difficulty,
+                                            color = KotoBeeOrange,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+
+                                    if (article.isFavorite) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Box(modifier = Modifier.height(60.dp)) {
+                                    FuriganaText(htmlContent = article.titleWithRuby, isTitleMode = true, onTextSelected = {})
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = article.date.take(10), fontSize = 12.sp, color = Color.Gray)
+                            }
+
+                            AsyncImage(
+                                model = article.imageUrl.ifEmpty { "https://via.placeholder.com/150x150.png?text=No+Image" },
+                                contentDescription = "Cover Image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp)).background(Color.LightGray)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==========================================
+// 2. MÀN HÌNH ĐỌC CHI TIẾT
+// ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackClick: () -> Unit) {
+    val article by viewModel.currentArticle.collectAsState()
+    val selectedVocab by viewModel.selectedVocab.collectAsState()
     val context = LocalContext.current
-    var showTranslation by remember { mutableStateOf(false) }
-    var isAudioPlaying by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // State lưu đoạn text người dùng đang bôi đen
-    var selectedTextByCursor by remember { mutableStateOf("") }
+    var highlightedText by remember { mutableStateOf("") }
+    var isAudioPlaying by remember { mutableStateOf(false) }
+    val exoPlayer = remember { ExoPlayer.Builder(context).build() }
 
-    val bgColor = Color(0xFFF8F9FA)
-    val surfaceColor = Color(0xFFFFFFFF)
-    val textColor = Color(0xFF2C3E50)
-    val primaryBlue = Color(0xFF1976D2)
-    val vocabOrange = Color(0xFFE65100)
-
-    // Khởi tạo TTS và Load bài đọc
-    LaunchedEffect(Unit) {
+    LaunchedEffect(newsId) {
         viewModel.initTTS(context)
-        viewModel.loadLesson("lesson_n3_001", highlightColor = vocabOrange, grammarColor = primaryBlue)
+        viewModel.loadArticleDetail(newsId)
     }
 
-    // Hiển thị Toast khi lưu từ vựng
-    LaunchedEffect(saveStatus) {
-        saveStatus?.let { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            viewModel.clearSaveStatus()
+    LaunchedEffect(article?.audioUrl) {
+        article?.audioUrl?.takeIf { it.isNotEmpty() }?.let { url ->
+            exoPlayer.setMediaItem(MediaItem.fromUri(url))
+            exoPlayer.prepare()
         }
     }
 
-    Scaffold(
-        containerColor = bgColor,
-        topBar = { TopNavigationBar(progress = 0.65f) },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                // NÚT DỊCH AI NỔI: Chỉ hiện khi có chữ được bôi đen
-                AnimatedVisibility(visible = selectedTextByCursor.isNotEmpty()) {
-                    ExtendedFloatingActionButton(
-                        onClick = {
-                            viewModel.translateSelectedText(selectedTextByCursor)
-                            selectedTextByCursor = "" // Reset sau khi bấm dịch
-                        },
-                        icon = { Icon(Icons.Default.Translate, contentDescription = "Dịch AI") },
-                        text = {
-                            val shortText = if (selectedTextByCursor.length > 10) "${selectedTextByCursor.take(10)}..." else selectedTextByCursor
-                            Text("Dịch: $shortText")
-                        },
-                        containerColor = primaryBlue,
-                        contentColor = Color.White,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
+    DisposableEffect(Unit) { onDispose { exoPlayer.release() } }
 
-                FloatingAudioPlayer(
-                    isPlaying = isAudioPlaying,
-                    onClick = { isAudioPlaying = !isAudioPlaying }
+    if (article == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = KotoBeeOrange)
+        }
+        return
+    }
+
+    Scaffold(
+        containerColor = Color.White,
+        floatingActionButton = {
+            AnimatedVisibility(visible = highlightedText.isNotEmpty()) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        viewModel.translateSelectedText(highlightedText)
+                        highlightedText = ""
+                    },
+                    icon = { Icon(Icons.Outlined.Translate, contentDescription = "Dịch") },
+                    text = { Text("Dịch AI") },
+                    containerColor = KotoBeeOrange,
+                    contentColor = Color.White
                 )
             }
         }
     ) { paddingValues ->
-        when (uiState) {
-            is ReadingUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = primaryBlue)
-                }
-            }
-            is ReadingUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    Text(text = (uiState as ReadingUiState.Error).message, color = Color.Red, fontWeight = FontWeight.Bold)
-                }
-            }
-            is ReadingUiState.Success -> {
-                val data = uiState as ReadingUiState.Success
-                val lesson = data.lesson
-
-                // Trạng thái quản lý văn bản cho tính năng Bôi Đen
-                var textValue by remember(data.annotatedContent) {
-                    mutableStateOf(TextFieldValue(annotatedString = data.annotatedContent))
-                }
-
-                Column(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AsyncImage(
+                    model = article!!.imageUrl.ifEmpty { "https://via.placeholder.com/800x400.png?text=No+Image" },
+                    contentDescription = "Banner",
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                )
+
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier
+                        .padding(top = 16.dp, start = 16.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SuggestionChip(
-                            onClick = { },
-                            label = { Text("${lesson.level} READING", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                            colors = SuggestionChipDefaults.suggestionChipColors(containerColor = primaryBlue.copy(alpha = 0.1f)),
-                            border = null
-                        )
-
-                        IconButton(onClick = { showTranslation = !showTranslation }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Translate,
-                                contentDescription = "Dịch",
-                                tint = if (showTranslation) primaryBlue else Color.Gray
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = lesson.title.ifEmpty { "Đang tải tiêu đề..." },
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = textColor,
-                        lineHeight = 1.3.em
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // BỘ CHỨA VĂN BẢN THÔNG MINH (Xử lý Bôi đen & Click)
-                    Surface(
-                        color = surfaceColor,
-                        shape = RoundedCornerShape(16.dp),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            BasicTextField(
-                                value = textValue,
-                                onValueChange = { newValue ->
-                                    val prevSelection = textValue.selection
-                                    textValue = newValue
-
-                                    if (!newValue.selection.collapsed) {
-                                        // 1. Khi người dùng đang bôi đen
-                                        val start = newValue.selection.min
-                                        val end = newValue.selection.max
-                                        if (start != end) {
-                                            selectedTextByCursor = newValue.annotatedString.text.substring(start, end)
-                                        }
-                                    } else {
-                                        // 2. Khi người dùng chạm (click) vào màn hình
-                                        selectedTextByCursor = ""
-
-                                        // Kiểm tra xem vị trí chạm có phải là từ vựng được highlight không
-                                        if (prevSelection != newValue.selection) {
-                                            val offset = newValue.selection.start
-                                            data.annotatedContent.getStringAnnotations("vocab", offset, offset)
-                                                .firstOrNull()?.let { annotation ->
-                                                    viewModel.onWordClicked(annotation.item)
-                                                }
-                                        }
-                                    }
-                                },
-                                readOnly = true, // Không hiện bàn phím, chỉ cho đọc và bôi đen
-                                textStyle = TextStyle(lineHeight = 2.2.em, fontSize = 18.sp, color = textColor),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(visible = showTranslation) {
-                        Column {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Surface(
-                                color = primaryBlue.copy(alpha = 0.05f),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, primaryBlue.copy(alpha = 0.2f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = lesson.fullTranslation.ifEmpty { "Chưa có bản dịch cho bài này." },
-                                    fontSize = 15.sp,
-                                    lineHeight = 1.6.em,
-                                    color = textColor,
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    QuizSection(
-                        surfaceColor = surfaceColor,
-                        textColor = textColor,
-                        viewModel = viewModel,
-                        lesson = lesson
-                    )
-
-                    Spacer(modifier = Modifier.height(100.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
+
+                IconButton(
+                    onClick = { viewModel.toggleFavorite(article!!.newsId) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 16.dp, end = 16.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (article!!.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Yêu thích",
+                        tint = if (article!!.isFavorite) Color.Red else Color.White
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.AccessTime, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = article!!.date, fontSize = 13.sp, color = Color.Gray)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                FuriganaText(
+                    htmlContent = "<h2>${article!!.titleWithRuby}</h2>",
+                    isTitleMode = true,
+                    onTextSelected = {}
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                FuriganaText(
+                    htmlContent = article!!.htmlContent,
+                    onTextSelected = { highlightedText = it.trim() }
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                if (article!!.audioUrl.isNotEmpty()) {
+                    AudioPlayerBar(
+                        isPlaying = isAudioPlaying,
+                        onClick = {
+                            isAudioPlaying = !isAudioPlaying
+                            if (isAudioPlaying) exoPlayer.play() else exoPlayer.pause()
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
 
-        // POPUP CHI TIẾT TỪ VỰNG (Hiển thị cho cả Click bình thường và Dịch AI)
         if (selectedVocab != null) {
             ModalBottomSheet(
                 onDismissRequest = { viewModel.clearSelectedVocab() },
                 sheetState = sheetState,
-                containerColor = surfaceColor,
-                dragHandle = { BottomSheetDefaults.DragHandle() }
+                containerColor = Color.White
             ) {
                 VocabDetailSheet(
                     vocab = selectedVocab!!,
-                    textColor = textColor,
-                    onSaveClick = {
-                        val testUserId = "user_001"
-                        viewModel.saveVocab(testUserId, selectedVocab!!)
-                    },
-                    onSpeakClick = {
-                        viewModel.speak(selectedVocab!!.word) // Gọi Text-To-Speech phát âm
-                    }
+                    onSaveClick = { /* Lưu vào sổ tay */ },
+                    onSpeakClick = { viewModel.speak(selectedVocab!!.word) }
                 )
             }
         }
     }
 }
 
-// ... (Các component TopNavigationBar, FloatingAudioPlayer giữ nguyên như cũ)
-
+// ==========================================
+// 3. WEBVIEW HIỂN THỊ FURIGANA
+// ==========================================
 @Composable
-fun TopNavigationBar(progress: Float) {
-    val animatedProgress by animateFloatAsState(targetValue = progress, label = "progress")
+fun FuriganaText(
+    htmlContent: String,
+    modifier: Modifier = Modifier,
+    isTitleMode: Boolean = false,
+    onTextSelected: (String) -> Unit
+) {
+    val fontSize = if (isTitleMode) "22px" else "18px"
+    val fontWeight = if (isTitleMode) "bold" else "normal"
+    val lineHeight = if (isTitleMode) "1.6" else "2.4"
+    val textColor = "#1F2937"
+    val rubyColor = "#F57C00"
 
-    Column(modifier = Modifier.background(Color.Transparent)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = { }) {
-                Icon(Icons.Filled.ArrowBackIosNew, contentDescription = "Back", modifier = Modifier.size(20.dp))
-            }
+    val styledHtml = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+            <style>
+                body {
+                    font-family: sans-serif; 
+                    font-size: $fontSize; 
+                    line-height: $lineHeight; 
+                    font-weight: $fontWeight;
+                    color: $textColor; 
+                    background-color: transparent; 
+                    padding: 0; margin: 0; 
+                    word-wrap: break-word;
+                    user-select: text; 
+                    -webkit-user-select: text;
+                }
+                ruby { ruby-align: center; }
+                rt { font-size: 11px; color: $rubyColor; font-weight: bold; }
+                h2 { margin: 0; font-size: 26px; font-weight: 900; line-height: 1.6;}
+                a { color: $rubyColor; text-decoration: none; }
+            </style>
+        </head>
+        <body>
+            $htmlContent
+            <script type="text/javascript">
+                document.addEventListener("selectionchange", function() {
+                    var selectedText = window.getSelection().toString();
+                    AndroidInterface.onSelectionChanged(selectedText);
+                });
+            </script>
+        </body>
+        </html>
+    """.trimIndent()
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "${(progress * 100).toInt()}% Hoàn thành",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Gray
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(6.dp)
-                        .clip(RoundedCornerShape(50)),
-                    color = Color(0xFF009688),
-                    trackColor = Color.LightGray.copy(alpha = 0.5f),
-                )
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { context ->
+            WebView(context).apply {
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                settings.apply {
+                    javaScriptEnabled = true
+                    defaultTextEncodingName = "utf-8"
+                }
+                addJavascriptInterface(object {
+                    @JavascriptInterface
+                    fun onSelectionChanged(text: String) { onTextSelected(text) }
+                }, "AndroidInterface")
+                webViewClient = WebViewClient()
             }
-            Spacer(modifier = Modifier.size(48.dp))
+        },
+        update = { webView ->
+            webView.loadDataWithBaseURL(null, styledHtml, "text/html", "utf-8", null)
         }
-    }
+    )
 }
 
+// ==========================================
+// 4. CÁC COMPONENT PHỤ TRỢ
+// ==========================================
 @Composable
-fun FloatingAudioPlayer(isPlaying: Boolean, onClick: () -> Unit) {
+fun AudioPlayerBar(isPlaying: Boolean, onClick: () -> Unit) {
     Card(
-        shape = RoundedCornerShape(50),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-        modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = KotoBeeOrange.copy(alpha = 0.1f)),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clickable { onClick() }
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(vertical = 16.dp)
         ) {
             Icon(
-                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.VolumeUp,
-                contentDescription = "Play/Pause Audio",
-                tint = Color(0xFF1976D2)
+                imageVector = if (isPlaying) Icons.Filled.PauseCircle else Icons.Filled.PlayCircle,
+                contentDescription = null,
+                tint = KotoBeeOrange,
+                modifier = Modifier.size(40.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = if (isPlaying) "Đang phát..." else "Nghe Audio",
-                color = Color(0xFF1976D2),
-                fontWeight = FontWeight.Bold
+                text = if (isPlaying) "Đang phát audio..." else "Nghe bài báo",
+                color = KotoBeeOrange,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp
             )
         }
     }
 }
 
 @Composable
-fun VocabDetailSheet(vocab: VocabDetail, textColor: Color, onSaveClick: () -> Unit, onSpeakClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, bottom = 40.dp, top = 8.dp)
-    ) {
+fun VocabDetailSheet(vocab: VocabDetail, onSaveClick: () -> Unit, onSpeakClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 40.dp, top = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -347,183 +448,37 @@ fun VocabDetailSheet(vocab: VocabDetail, textColor: Color, onSaveClick: () -> Un
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(vocab.furigana, fontSize = 14.sp, color = Color.Gray)
-                Text(vocab.word, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
-                if (vocab.hanViet.isNotEmpty()) {
-                    Text(
-                        vocab.hanViet,
-                        fontSize = 13.sp,
-                        color = Color(0xFF009688),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+                Text(vocab.word, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = TextDark)
             }
-
             IconButton(
-                onClick = onSpeakClick, // ĐÃ GẮN SỰ KIỆN PHÁT ÂM VÀO ĐÂY
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFF1976D2), CircleShape)
+                onClick = onSpeakClick,
+                modifier = Modifier.size(56.dp).background(KotoBeeOrange, CircleShape)
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = "Nghe", tint = Color.White)
+                // Đã đổi sang bản AutoMirrored cho VolumeUp
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Nghe", tint = Color.White)
             }
         }
 
-        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color.LightGray.copy(alpha = 0.3f))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp), color = Color.LightGray.copy(alpha = 0.3f))
 
         Text("Ý nghĩa:", fontSize = 14.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
         Text(
             vocab.meaning,
             fontSize = 18.sp,
-            color = textColor,
-            lineHeight = 1.4.em,
-            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            color = TextDark,
+            lineHeight = 1.5.em,
+            modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
         )
 
-        if (vocab.example.isNotEmpty()) {
-            Text("Ví dụ:", fontSize = 14.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
-            Text(
-                vocab.example,
-                fontSize = 16.sp,
-                color = textColor,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedButton(
-                onClick = { /* Mở chi tiết Kanji */ },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Chi tiết Kanji", color = textColor)
-            }
-
-            Button(
-                onClick = { onSaveClick() },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Lưu từ")
-            }
-        }
-    }
-}
-
-@Composable
-fun QuizSection(
-    surfaceColor: Color,
-    textColor: Color,
-    viewModel: ReadingViewModel,
-    lesson: ReadingLesson
-) {
-    var selectedOption by remember { mutableStateOf<Int?>(null) }
-    val quizResult by viewModel.quizResult.collectAsState()
-
-    val quiz = lesson.quiz.firstOrNull()
-    val questionText = quiz?.question ?: "Bài đọc nói về điều gì là chủ yếu?"
-    val options = quiz?.options ?: listOf(
-        "Các loại hoa quả mùa hè ở Nhật Bản.",
-        "Lễ hội truyền thống và sự kiện theo mùa.",
-        "Cách làm pháo hoa ở Nhật."
-    )
-    val correctIndex = quiz?.correctIndex ?: 1
-    val lessonId = lesson.lessonId.ifEmpty { "lesson_n3_001" }
-    val testUserId = "user_001"
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = surfaceColor),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Lightbulb, contentDescription = null, tint = Color(0xFFFFB300))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Kiểm tra nhanh", fontWeight = FontWeight.Bold, color = Color.Gray)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = questionText,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            options.forEachIndexed { index, text ->
-                val isSelected = selectedOption == index
-
-                val bgColor = when {
-                    quizResult == true && index == correctIndex -> Color(0xFFE8F5E9)
-                    quizResult == false && isSelected -> Color(0xFFFFEBEE)
-                    isSelected -> Color(0xFFE3F2FD)
-                    else -> Color.Transparent
-                }
-
-                val borderColor = when {
-                    quizResult == true && index == correctIndex -> Color(0xFF4CAF50)
-                    quizResult == false && isSelected -> Color(0xFFF44336)
-                    isSelected -> Color(0xFF1976D2)
-                    else -> Color.LightGray
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-                        .background(bgColor, RoundedCornerShape(12.dp))
-                        .clickable(enabled = quizResult == null) {
-                            selectedOption = index
-                            viewModel.resetQuiz()
-                        }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = isSelected,
-                        onClick = null,
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = if (quizResult == true) Color(0xFF4CAF50) else if (quizResult == false) Color(0xFFF44336) else Color(0xFF1976D2)
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = text, color = textColor, fontSize = 16.sp)
-                }
-            }
-
-            AnimatedVisibility(visible = selectedOption != null && quizResult == null) {
-                Button(
-                    onClick = {
-                        viewModel.checkQuizAnswer(testUserId, lessonId, selectedOption!!, correctIndex)
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF009688))
-                ) {
-                    Text("Kiểm tra đáp án", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            AnimatedVisibility(visible = quizResult != null) {
-                Text(
-                    text = if (quizResult == true) "🎉 Chính xác! Bạn đã hoàn thành bài học." else "❌ Sai rồi, thử lại nhé!",
-                    color = if (quizResult == true) Color(0xFF4CAF50) else Color(0xFFF44336),
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-            }
+        Button(
+            onClick = { onSaveClick() },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = KotoBeeOrange),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Lưu vào sổ tay", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

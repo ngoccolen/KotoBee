@@ -50,8 +50,7 @@ class LoginViewModel : ViewModel() {
 
                 // đăng ký email rồi thì đăng nhập
                 auth.signInWithEmailAndPassword(emailOfUser, pass).await()
-
-                _authState.value = AuthState.Success
+                _authState.value = AuthState.Success(isNewUser = false)
 
             } catch (e: Exception) {
                 _authState.value = AuthState.Error("Sai mật khẩu hoặc mất kết nối mạng!")
@@ -93,8 +92,8 @@ class LoginViewModel : ViewModel() {
                         userDocRef.set(userData).await()
                     }
                 }
+                _authState.value = AuthState.Success(isNewUser = false)
 
-                _authState.value = AuthState.Success
             } catch (e: Exception) {
                 _authState.value = AuthState.Error("Đăng nhập Google thất bại: ${e.localizedMessage}")
             }
