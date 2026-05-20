@@ -181,7 +181,7 @@ class SpeakingConversationRepository(
             feedbackVi = response.feedbackVi.orEmpty(),
             correctionJa = response.correctionJa.orEmpty(),
             turnIndex = turnIndex,
-            source = "groq_conversation"
+            source = "gemini_conversation"
         )
 
         messageRef.set(message.toFirestoreMap()).await()

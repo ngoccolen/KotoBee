@@ -73,6 +73,7 @@ class SpeakingPairRepository(
             status = "waiting",
             currentTurnUserId = user.userDocId,
             turnIndex = 0,
+            participantCount = 1,
             createdAt = now,
             updatedAt = now,
             expiresAt = now + ROOM_TTL_MS
@@ -92,33 +93,38 @@ class SpeakingPairRepository(
 
         val user = getCurrentUser()
         val roomRef = firestore.collection(ROOM_COLLECTION).document(normalizedCode)
-        val room = roomRef.get().await().toObject(SpeakingPairRoom::class.java)
-            ?: error("Không tìm thấy phòng.")
-        if (room.status != "waiting") error("Phòng này đã bắt đầu hoặc đã kết thúc.")
-        if (room.expiresAt > 0 && room.expiresAt < System.currentTimeMillis()) error("Phòng này đã hết hạn.")
-
-        val participants = getParticipants(normalizedCode)
-        val alreadyJoined = participants.any { it.userId == user.userDocId }
-        if (!alreadyJoined && participants.size >= 2) error("Phòng đã đủ 2 người.")
-
         val now = System.currentTimeMillis()
-        val participant = user.toParticipant(joinedAt = now, isHost = user.userDocId == room.hostUserId)
-        roomRef.collection(PARTICIPANT_COLLECTION)
-            .document(user.userDocId)
-            .set(participant, SetOptions.merge())
-            .await()
+        val knownParticipantCount = getParticipants(normalizedCode).size
+        val participantRef = roomRef.collection(PARTICIPANT_COLLECTION).document(user.userDocId)
+
+        firestore.runTransaction { transaction ->
+            val latestRoom = transaction.get(roomRef).toObject(SpeakingPairRoom::class.java)
+                ?: error("Không tìm thấy phòng.")
+            if (latestRoom.status != "waiting") error("Phòng này đã bắt đầu hoặc đã kết thúc.")
+            if (latestRoom.expiresAt > 0 && latestRoom.expiresAt < now) error("Phòng này đã hết hạn.")
+
+            val participantSnapshot = transaction.get(participantRef)
+            val alreadyJoined = participantSnapshot.exists()
+            val currentCount = maxOf(latestRoom.participantCount, knownParticipantCount)
+            if (!alreadyJoined && currentCount >= 2) error("Phòng đã đủ 2 người.")
+
+            val nextCount = if (alreadyJoined) currentCount else currentCount + 1
+            val participant = user.toParticipant(joinedAt = now, isHost = user.userDocId == latestRoom.hostUserId)
+            transaction.set(participantRef, participant, SetOptions.merge())
+            transaction.update(
+                roomRef,
+                mapOf(
+                    "participantCount" to nextCount,
+                    "status" to if (nextCount >= 2) "active" else "waiting",
+                    "updatedAt" to now
+                )
+            )
+            null
+        }.await()
 
         val updatedParticipants = getParticipants(normalizedCode)
-        if (updatedParticipants.size >= 2) {
-            roomRef.set(
-                mapOf(
-                    "status" to "active",
-                    "updatedAt" to now
-                ),
-                SetOptions.merge()
-            ).await()
-        }
-        val updatedRoom = roomRef.get().await().toObject(SpeakingPairRoom::class.java) ?: room
+        val updatedRoom = roomRef.get().await().toObject(SpeakingPairRoom::class.java)
+            ?: error("Không tìm thấy phòng.")
         saveHistories(updatedRoom, updatedParticipants)
         normalizedCode
     }
@@ -153,6 +159,13 @@ class SpeakingPairRepository(
                     ).await()
                 } else {
                     roomRef.collection(PARTICIPANT_COLLECTION).document(user.userDocId).delete().await()
+                    roomRef.set(
+                        mapOf(
+                            "participantCount" to getParticipants(code).size,
+                            "updatedAt" to now
+                        ),
+                        SetOptions.merge()
+                    ).await()
                 }
             }
             "active" -> {
@@ -210,6 +223,9 @@ class SpeakingPairRepository(
         if (room.status != "active") error("Phòng chưa sẵn sàng để gửi lượt nói.")
         if (room.currentTurnUserId != user.userDocId) error("Chưa đến lượt của bạn.")
         if (participants.size < 2 || participants.any { !it.isOnline }) error("Người học còn lại đã rời phòng.")
+        val nextParticipant = participants.firstOrNull { it.userId != user.userDocId }
+            ?: error("Người học còn lại đã rời phòng.")
+        val nextParticipantRef = roomRef.collection(PARTICIPANT_COLLECTION).document(nextParticipant.userId)
 
         val messageId = roomRef.collection(MESSAGE_COLLECTION).document().id
         val audioRef = storage.reference.child("$ROOM_COLLECTION/$code/$messageId.m4a")
@@ -223,9 +239,9 @@ class SpeakingPairRepository(
             if (latestRoom.status != "active") error("Phòng đã kết thúc.")
             if (latestRoom.currentTurnUserId != user.userDocId) error("Chưa đến lượt của bạn.")
 
-            val latestParticipants = participants
-            val nextUserId = latestParticipants.firstOrNull { it.userId != user.userDocId && it.isOnline }?.userId
-                ?: error("Người học còn lại đã rời phòng.")
+            val latestNextParticipant = transaction.get(nextParticipantRef).toObject(SpeakingPairParticipant::class.java)
+            if (latestNextParticipant?.isOnline != true) error("Người học còn lại đã rời phòng.")
+            val nextUserId = latestNextParticipant.userId.ifBlank { nextParticipant.userId }
             val message = SpeakingPairMessage(
                 id = messageId,
                 senderUserId = user.userDocId,

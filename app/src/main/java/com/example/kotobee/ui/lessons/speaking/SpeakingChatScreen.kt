@@ -120,9 +120,14 @@ fun SpeakingChatScreen(
     val recognitionIntent = remember {
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ja-JP")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.JAPAN.toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, Locale.JAPAN.toLanguageTag())
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2_500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1_200L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 800L)
         }
     }
 
@@ -148,16 +153,13 @@ fun SpeakingChatScreen(
                     SpeechRecognizer.ERROR_NO_MATCH -> "Mình chưa nghe rõ câu tiếng Nhật."
                     SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Chưa nhận được giọng nói."
                     SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Không thể nhận diện giọng nói vì lỗi mạng."
-                    else -> "Không thể nhận diện giọng nói. Hãy thử lại hoặc nhập text để test AI."
+                    else -> "Không thể nhận diện giọng nói. Hãy thử lại hoặc nhập text"
                 }
             }
 
             override fun onResults(results: Bundle?) {
                 isListening = false
-                val text = results
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()
-                    .orEmpty()
+                val text = bestJapaneseRecognitionResult(results)
                 partialText = ""
                 if (text.isNotBlank()) {
                     viewModel.submitUserText(text)
@@ -165,10 +167,7 @@ fun SpeakingChatScreen(
             }
 
             override fun onPartialResults(partialResults: Bundle?) {
-                partialText = partialResults
-                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull()
-                    .orEmpty()
+                partialText = bestJapaneseRecognitionResult(partialResults)
             }
 
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
@@ -227,7 +226,7 @@ fun SpeakingChatScreen(
             return
         }
         if (speechRecognizer == null) {
-            speechError = "Thiết bị không hỗ trợ SpeechRecognizer. Bạn vẫn có thể nhập text để test AI."
+            speechError = "Thiết bị không hỗ trợ SpeechRecognizer. Bạn vẫn có thể nhập text để test ."
             return
         }
         if (chatState.isSending || chatState.isLoading) return
@@ -236,10 +235,11 @@ fun SpeakingChatScreen(
         partialText = ""
         isListening = true
         runCatching {
+            speechRecognizer.cancel()
             speechRecognizer.startListening(recognitionIntent)
         }.onFailure {
             isListening = false
-            speechError = "Không thể mở micro. Hãy thử lại hoặc nhập text để test AI."
+            speechError = "Không thể mở micro. Hãy thử lại hoặc nhập text để test."
         }
     }
 
@@ -290,8 +290,13 @@ fun SpeakingChatScreen(
                 errorMessage = speechError ?: chatState.errorMessage ?: ttsMessage,
                 onManualTextChange = { manualText = it },
                 onSendManualText = ::sendManualText,
-                onPressStart = ::startListening,
-                onPressEnd = ::stopListening
+                onMicClick = {
+                    if (isListening) {
+                        stopListening()
+                    } else {
+                        startListening()
+                    }
+                }
             )
         },
         containerColor = ThemeBackground
@@ -421,8 +426,7 @@ private fun SpeakingMicBar(
     errorMessage: String?,
     onManualTextChange: (String) -> Unit,
     onSendManualText: () -> Unit,
-    onPressStart: () -> Unit,
-    onPressEnd: () -> Unit
+    onMicClick: () -> Unit
 ) {
     val canSendText = manualText.trim().isNotEmpty() && !isSending
 
@@ -451,7 +455,7 @@ private fun SpeakingMicBar(
                     enabled = !isSending,
                     minLines = 1,
                     maxLines = 3,
-                    placeholder = { Text("Nhập câu tiếng Nhật để test AI...", color = TextGray, fontSize = 12.sp) },
+                    placeholder = { Text("Nhập text", color = TextGray, fontSize = 12.sp) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = { onSendManualText() })
                 )
@@ -480,13 +484,13 @@ private fun SpeakingMicBar(
                 Text(partialText, color = TextDark, fontSize = 15.sp, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(8.dp))
             } else if (isListening) {
-                Text("Đang ghi âm...", color = Color(0xFFC62828), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Đang nghe... chạm lại để dừng", color = Color(0xFFC62828), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
             } else if (errorMessage != null) {
                 Text(errorMessage, color = ProgressPrimary, fontSize = 12.sp, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(8.dp))
             } else {
-                Text("Giữ mic để nói", color = TextGray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                Text("Chạm mic để nói", color = TextGray, fontSize = 12.sp, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
@@ -503,12 +507,8 @@ private fun SpeakingMicBar(
                     )
                     .pointerInput(isSending) {
                         detectTapGestures(
-                            onPress = {
-                                if (!isSending) {
-                                    onPressStart()
-                                    tryAwaitRelease()
-                                    onPressEnd()
-                                }
+                            onTap = {
+                                if (!isSending) onMicClick()
                             }
                         )
                     },
@@ -521,6 +521,27 @@ private fun SpeakingMicBar(
                     modifier = Modifier.size(34.dp)
                 )
             }
+        }
+    }
+}
+
+private fun bestJapaneseRecognitionResult(results: Bundle?): String {
+    val candidates = results
+        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+        .orEmpty()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+
+    return candidates.maxByOrNull(::japaneseTextScore).orEmpty()
+}
+
+private fun japaneseTextScore(text: String): Int {
+    return text.fold(0) { score, char ->
+        score + when (char) {
+            in '\u3040'..'\u30ff' -> 3
+            in '\u4e00'..'\u9faf' -> 3
+            in '\uff66'..'\uff9f' -> 2
+            else -> 0
         }
     }
 }

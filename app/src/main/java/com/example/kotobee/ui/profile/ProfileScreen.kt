@@ -71,6 +71,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -80,6 +81,8 @@ import coil.request.ImageRequest
 import com.example.kotobee.R
 import com.example.kotobee.di.AppContainer
 import com.example.kotobee.ui.auth.AuthState
+import com.example.kotobee.data.model.Badge
+import androidx.compose.ui.graphics.Brush
 
 object ColorPalette {
     val Background = Color.White
@@ -102,6 +105,7 @@ fun ProfileScreen(navController: NavController) {
     val activityData by viewModel.activityData.collectAsState()
     val recentActivities by viewModel.recentActivities.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+    val badges by viewModel.badges.collectAsState()
 
     var showEditDialog by remember { mutableStateOf(false) }
 
@@ -149,6 +153,8 @@ fun ProfileScreen(navController: NavController) {
         item { ProfileHeader(profileState) }
         item { Spacer(modifier = Modifier.height(24.dp)) }
         item { QuickStatsRow(profileState) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+        item { BadgesCard(badges = badges) }
         item { Spacer(modifier = Modifier.height(16.dp)) }
         item { LearningSummaryCard(profileState) }
         item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -571,9 +577,11 @@ fun StreakOverviewCard(state: ProfileState) {
 
 @Composable
 fun ActivityChartCard(activityData: List<ActivityDay>) {
-    val weeklyData = remember(activityData) { buildWeeklyActivity(activityData) }
-    val maxWeeklyPoints = weeklyData.maxOfOrNull { it.value }?.coerceAtLeast(1) ?: 1
-    val currentWeekPoints = weeklyData.lastOrNull()?.value ?: 0
+    val dailyData = remember(activityData) {
+        activityData.takeIf { it.size == 7 } ?: buildCurrentWeekActivity()
+    }
+    val maxDailyPoints = dailyData.maxOfOrNull { it.value }?.coerceAtLeast(1) ?: 1
+    val currentWeekPoints = dailyData.sumOf { it.value }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -594,10 +602,10 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                     fontWeight = FontWeight.Bold,
                     color = ColorPalette.Text
                 )
-                Text(text = "12 tuần", fontSize = 14.sp, color = ColorPalette.Primary)
+                Text(text = "Tuần này", fontSize = 14.sp, color = ColorPalette.Primary)
             }
             Text(
-                "Mỗi cột là tổng điểm học của một tuần.",
+                "Mỗi cột là điểm học trong một ngày, từ T2 đến CN.",
                 color = ColorPalette.TextSub,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp)
@@ -615,7 +623,7 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Tuần này", color = ColorPalette.TextSub, fontSize = 12.sp)
+                    Text("Tổng tuần này", color = ColorPalette.TextSub, fontSize = 12.sp)
                     Text(
                         "$currentWeekPoints điểm",
                         color = ColorPalette.Primary,
@@ -632,7 +640,7 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
-                weeklyData.forEach { week ->
+                dailyData.forEach { day ->
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -646,8 +654,8 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                                 .fillMaxWidth(),
                             contentAlignment = Alignment.BottomCenter
                         ) {
-                            val fraction = week.value.toFloat() / maxWeeklyPoints.toFloat()
-                            val barHeight = if (week.value > 0) {
+                            val fraction = day.value.toFloat() / maxDailyPoints.toFloat()
+                            val barHeight = if (day.value > 0) {
                                 (108.dp * fraction).coerceAtLeast(8.dp)
                             } else {
                                 3.dp
@@ -658,46 +666,21 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                                     .height(barHeight)
                                     .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                                     .background(
-                                        if (week.isCurrent) ColorPalette.Primary else ColorPalette.Primary.copy(alpha = 0.28f)
+                                        if (day.isToday) ColorPalette.Primary else ColorPalette.Primary.copy(alpha = 0.28f)
                                     )
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = week.label,
-                            color = if (week.isCurrent) ColorPalette.Primary else ColorPalette.TextSub,
+                            text = day.day,
+                            color = if (day.isToday) ColorPalette.Primary else ColorPalette.TextSub,
                             fontSize = 10.sp,
-                            fontWeight = if (week.isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
                             maxLines = 1
                         )
                     }
                 }
             }
-        }
-    }
-}
-
-private data class ActivityWeek(
-    val label: String,
-    val value: Int,
-    val isCurrent: Boolean
-)
-
-private fun buildWeeklyActivity(activityData: List<ActivityDay>): List<ActivityWeek> {
-    val weeks = activityData.takeLast(84).chunked(7).takeLast(12)
-    return weeks.mapIndexed { index, days ->
-        ActivityWeek(
-            label = if (index == weeks.lastIndex) "Nay" else "T-${weeks.lastIndex - index}",
-            value = days.sumOf { it.value },
-            isCurrent = index == weeks.lastIndex
-        )
-    }.ifEmpty {
-        List(12) { index ->
-            ActivityWeek(
-                label = if (index == 11) "Nay" else "T-${11 - index}",
-                value = 0,
-                isCurrent = index == 11
-            )
         }
     }
 }
@@ -854,6 +837,145 @@ fun SettingItemRow(item: SettingItem) {
             contentDescription = null,
             tint = Color(0xFFDDDDDD),
             modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
+fun BadgesCard(badges: List<Badge>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
+        border = BorderStroke(1.dp, ColorPalette.Border.copy(alpha = 0.2f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "🏆 Huy hiệu học tập",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = ColorPalette.Text
+                )
+                if (badges.isNotEmpty()) {
+                    Text(
+                        text = "${badges.size} đã đạt",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorPalette.TextSub
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (badges.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(ColorPalette.MutedSurface)
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "🏵️ Chưa có huy hiệu nào",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorPalette.Text
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Hoàn thành mục tiêu học tập để nhận huy hiệu đầu tiên!",
+                            fontSize = 12.sp,
+                            color = ColorPalette.TextSub,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(badges) { badge ->
+                        BadgeItem(badge = badge)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BadgeItem(badge: Badge) {
+    val frameColor = when (badge.iconName) {
+        "first_goal" -> Color(0xFFCD7F32) // Bronze
+        "rising_star" -> Color(0xFFC0C0C0) // Silver
+        "champion" -> Color(0xFFFFD700) // Gold
+        "master" -> Color(0xFF00ADEE) // Platinum
+        "legend" -> Color(0xFFE53935) // Ruby/KotoBee Red
+        else -> Color(0xFFFFD700)
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(88.dp)
+            .padding(vertical = 4.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(68.dp)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            frameColor.copy(alpha = 0.15f),
+                            frameColor.copy(alpha = 0.05f)
+                        )
+                    ),
+                    CircleShape
+                )
+                .border(2.dp, frameColor, CircleShape)
+        ) {
+            Icon(
+                imageVector = com.example.kotobee.ui.home.getBadgeIcon(badge.iconName),
+                contentDescription = badge.name,
+                tint = frameColor,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = badge.name,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = ColorPalette.Text,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = badge.goalTitle.ifEmpty { "Mục tiêu" },
+            fontSize = 10.sp,
+            color = ColorPalette.TextSub,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

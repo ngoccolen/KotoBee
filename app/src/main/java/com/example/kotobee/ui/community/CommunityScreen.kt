@@ -166,17 +166,6 @@ fun CommunityScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = ThemeBackground,
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Cộng đồng", fontWeight = FontWeight.ExtraBold, color = TextDark, fontSize = 20.sp)
-                            Text("Học chung, chia sẻ thông minh", color = TextGray, fontSize = 12.sp)
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = ThemeBackground)
-                )
-            },
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = onCreatePostClick,

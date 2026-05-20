@@ -10,6 +10,7 @@ data class SpeakingPairRoom(
     val status: String = "waiting",
     val currentTurnUserId: String = "",
     val turnIndex: Int = 0,
+    val participantCount: Int = 0,
     val messageCount: Int = 0,
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,

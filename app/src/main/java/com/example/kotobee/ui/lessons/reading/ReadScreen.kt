@@ -56,7 +56,13 @@ fun NewsListScreen(
     val filteredNewsList by viewModel.filteredNewsList.collectAsState()
     val selectedLevel by viewModel.selectedLevel.collectAsState()
 
-    val levels = listOf("Tất cả", "Yêu thích", "Dễ", "Trung bình", "Khó")
+    val levels = listOf(
+        "Tất cả",
+        "Yêu thích",
+        ReadingDifficulty.EASY.label,
+        ReadingDifficulty.MEDIUM.label,
+        ReadingDifficulty.HARD.label
+    )
 
     Scaffold(
         topBar = {

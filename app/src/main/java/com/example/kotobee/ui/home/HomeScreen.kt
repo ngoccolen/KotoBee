@@ -46,6 +46,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -81,6 +82,7 @@ import com.example.kotobee.R
 import com.example.kotobee.di.AppContainer
 import com.example.kotobee.ui.community.CommunityScreen
 import com.example.kotobee.ui.community.CommunityViewModel
+import com.example.kotobee.ui.components.KotoBeeTopBar
 import com.example.kotobee.ui.lessons.LearningScreen
 import com.example.kotobee.ui.profile.ProfileScreen
 
@@ -108,6 +110,9 @@ fun MainScreen(navController: NavController) {
         androidx.lifecycle.viewmodel.compose.viewModel(
             factory = CommunityViewModel.Factory(repository = appContainer.communityRepository)
         )
+    val homeViewModel: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val userProfile by homeViewModel.userProfile.collectAsState()
+
     val items = listOf(
         BottomDestination("Trang chủ", Icons.Default.Home),
         BottomDestination("Học tập", Icons.Default.MenuBook),
@@ -121,6 +126,13 @@ fun MainScreen(navController: NavController) {
     }
 
     Scaffold(
+        topBar = {
+            KotoBeeTopBar(
+                username = userProfile.username,
+                avatarUrl = userProfile.avatarUrl,
+                onAvatarClick = { selectedItem = 3 }
+            )
+        },
         bottomBar = {
             Column {
                 HorizontalDivider(color = AccentRed, thickness = 1.dp)
@@ -157,9 +169,11 @@ fun MainScreen(navController: NavController) {
         when (selectedItem) {
             0 -> HomeScreen(
                 navController = navController,
+                viewModel = homeViewModel,
                 modifier = Modifier.padding(padding),
                 onOpenLearning = openLearningTab,
-                onOpenVocabLibrary = openVocabLibrary
+                onOpenVocabLibrary = openVocabLibrary,
+                onOpenProfile = { selectedItem = 3 }
             )
             1 -> LearningScreen(
                 navController = navController,
@@ -188,13 +202,35 @@ fun HomeScreen(
     viewModel: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     modifier: Modifier = Modifier,
     onOpenLearning: () -> Unit = {},
-    onOpenVocabLibrary: () -> Unit = { navController.navigate("deck_list") }
+    onOpenVocabLibrary: () -> Unit = { navController.navigate("deck_list") },
+    onOpenProfile: () -> Unit = {}
 ) {
     val userProfile by viewModel.userProfile.collectAsState()
     val dailyTasks by viewModel.dailyTasks.collectAsState()
+    val currentGoal by viewModel.currentGoal.collectAsState()
+    val showCompletionDialog by viewModel.showCompletionDialog.collectAsState()
+    val earnedBadge by viewModel.earnedBadge.collectAsState()
+
     var showAddTaskDialog by remember { mutableStateOf(false) }
+    var showAddGoalDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.loadUserData() }
+
+    // Completion dialog
+    if (showCompletionDialog) {
+        GoalCompletionDialog(
+            badge = earnedBadge,
+            onDismiss = { viewModel.dismissCompletionDialog() },
+            onViewProfile = {
+                viewModel.dismissCompletionDialog()
+                onOpenProfile()
+            },
+            onCreateNewGoal = {
+                viewModel.dismissCompletionDialog()
+                showAddGoalDialog = true
+            }
+        )
+    }
 
     if (showAddTaskDialog) {
         AddTaskDialog(
@@ -206,6 +242,16 @@ fun HomeScreen(
         )
     }
 
+    if (showAddGoalDialog) {
+        AddGoalDialog(
+            onDismiss = { showAddGoalDialog = false },
+            onConfirm = { title, milestones ->
+                viewModel.createNewGoal(title, milestones)
+                showAddGoalDialog = false
+            }
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -213,43 +259,50 @@ fun HomeScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 22.dp)
     ) {
+        // 1. Redesigned HomeHeader using the original dynamic state logic (styled larger)
         HomeHeader(userProfile = userProfile, dailyTasks = dailyTasks)
         Spacer(modifier = Modifier.height(18.dp))
 
-        StudyDashboardCard(userProfile = userProfile, dailyTasks = dailyTasks)
-        Spacer(modifier = Modifier.height(18.dp))
+        // 2. Learning progress cards styled with soft red gradients
+        LearningCardsSection(
+            userProfile = userProfile,
+            onLearnClick = onOpenLearning,
+            onReviewClick = onOpenVocabLibrary
+        )
+        Spacer(modifier = Modifier.height(20.dp))
 
+        // 3. Goal Path Section
+        GoalPathSection(
+            goal = currentGoal,
+            onCreateGoal = { showAddGoalDialog = true },
+            onMilestoneClick = { milestone ->
+                viewModel.completeMilestone(milestone.id)
+            },
+            onDeleteGoal = { viewModel.deleteCurrentGoal() }
+        )
+        Spacer(modifier = Modifier.height(20.dp))
 
+        // 4. Daily tasks card section with a bold red border and solid white background
+        Text(
+            text = "Nhiệm vụ",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = TextDark,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            HomeQuickAction(
-                title = "Vào học",
-                subtitle = "Chọn kỹ năng",
-                icon = Icons.Default.School,
-                modifier = Modifier.weight(1f),
-                onClick = onOpenLearning
-            )
-            HomeQuickAction(
-                title = "Flashcard",
-                subtitle = "Ôn nhanh",
-                icon = Icons.Outlined.Bookmarks,
-                modifier = Modifier.weight(1f),
-                onClick = onOpenVocabLibrary
-            )
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
         DailyTasksSection(
             tasks = dailyTasks,
             onAddTaskClick = { showAddTaskDialog = true },
             onTaskClick = { task -> viewModel.incrementTaskProgress(task) }
         )
+        
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
-private fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
+fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
     val completedTasks = dailyTasks.count { it.current >= it.target }
     val totalTasks = dailyTasks.size
     val allDone = totalTasks > 0 && completedTasks == totalTasks
@@ -259,246 +312,235 @@ private fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
     } else {
         "Chào ${userProfile.username.ifEmpty { "cậu" }}! Hãy cùng nhau cố gắng hơn nữa nha"
     }
+    val subDialogueText = if (allDone) {
+        "Hãy nghỉ ngơi hoặc tiếp tục ôn luyện nhé! KotoBee rất tự hào về bạn!"
+    } else {
+        "Hãy hoàn thành các nhiệm vụ bên dưới để tiếp tục hành trình chinh phục tiếng Nhật nhé!"
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 6.dp),
-        shape = RoundedCornerShape(22.dp),
+            .height(176.dp),
+        shape = RoundedCornerShape(30.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        listOf(Color(0xFFE53935), Color(0xFFB71C1C))
-                    ),
-                    RoundedCornerShape(22.dp)
+                        listOf(Color(0xFFEF5350), Color(0xFFC62828))
+                    )
                 )
+                .padding(horizontal = 22.dp, vertical = 20.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier.weight(1.3f),
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("KotoBee", fontWeight = FontWeight.ExtraBold, color = Color.White, fontSize = 15.sp)
-                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "KotoBee",
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
                         Box(
                             modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
                         ) {
-                            Text(userProfile.jlptLevel, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(
+                                text = userProfile.jlptLevel,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = dialogueText,
-                        color = Color.White.copy(alpha = 0.92f),
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 25.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = subDialogueText,
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
-                Box(
+                
+                Image(
+                    painter = painterResource(id = mascotImage),
+                    contentDescription = "KotoBee Mascot",
                     modifier = Modifier
-                        .size(86.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+                        .weight(0.7f)
+                        .size(124.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LearningCardsSection(
+    userProfile: UserProfile,
+    onLearnClick: () -> Unit,
+    onReviewClick: () -> Unit
+) {
+    val learnedVal = if (userProfile.learnedVocab == 0) 9 else userProfile.learnedVocab % 15
+    val reviewVal = if (userProfile.streak == 0) 1 else userProfile.streak % 30
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Card 1: Học từ mới
+        Card(
+            modifier = Modifier.fillMaxWidth().height(128.dp),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFFFFF5F5), Color(0xFFFFEBEE))
+                        )
+                    )
+                    .border(1.dp, Color(0xFFFFD5D5), RoundedCornerShape(22.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(62.dp)) {
+                            CircularProgressIndicator(
+                                progress = { learnedVal.toFloat() / 15f },
+                                color = AccentRed,
+                                strokeWidth = 5.dp,
+                                trackColor = Color(0xFFFFEBEE),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Text(
+                                text = "$learnedVal/15",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                color = TextDark
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onLearnClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("Học từ mới", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+
                     Image(
-                        painter = painterResource(id = mascotImage),
-                        contentDescription = "KotoBee Mascot",
-                        modifier = Modifier.size(74.dp),
+                        painter = painterResource(id = R.drawable.jp_vocabulary),
+                        contentDescription = "Mascot Vocab",
+                        modifier = Modifier.size(92.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
             }
         }
-    }
-}
 
-@Composable
-private fun StudyDashboardCard(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
-    val completedTasks = dailyTasks.count { it.current >= it.target }
-    val totalTasks = dailyTasks.size
-    val taskProgress = if (totalTasks == 0) 0f else completedTasks.toFloat() / totalTasks.toFloat()
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, SoftBorder),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Tổng quan học tập", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = TextDark)
-                    Text("Cấp độ ${userProfile.jlptLevel}", color = TextGray, fontSize = 12.sp)
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SoftPink)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text("${userProfile.todayStudyPoints} điểm", color = ProgressPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                DashboardMetric(
-                    icon = Icons.Default.Star,
-                    value = userProfile.todayStudyPoints.toString(),
-                    label = "Điểm hôm nay",
-                    modifier = Modifier.weight(1f)
-                )
-                DashboardMetric(
-                    icon = Icons.Default.MenuBook,
-                    value = userProfile.learnedVocab.toString(),
-                    label = "Từ đã học",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                DashboardMetric(
-                    icon = Icons.Default.LocalFireDepartment,
-                    value = userProfile.streak.toString(),
-                    label = "Streak hiện tại",
-                    modifier = Modifier.weight(1f)
-                )
-                DashboardMetric(
-                    icon = Icons.Default.DateRange,
-                    value = userProfile.activeDays.toString(),
-                    label = "Ngày hoạt động",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Nhiệm vụ hôm nay", color = TextDark, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("$completedTasks/$totalTasks", color = ProgressPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { taskProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-                color = ProgressPrimary,
-                trackColor = ProgressTrack
-            )
-        }
-    }
-}
-
-@Composable
-private fun DashboardMetric(
-    icon: ImageVector,
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .heightIn(min = 78.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(SoftPink)
-            .border(1.dp, SoftBorder, RoundedCornerShape(16.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .background(Color.White, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = ProgressPrimary, modifier = Modifier.size(18.dp))
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(value, color = TextDark, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(label, color = TextGray, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-
-
-@Composable
-private fun HomeQuickAction(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .heightIn(min = 116.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(SoftPink, Color.White)
-                    ),
-                    RoundedCornerShape(20.dp)
-                )
-                .padding(14.dp),
-            verticalArrangement = Arrangement.Center
+        // Card 2: Ôn tập ngay
+        Card(
+            modifier = Modifier.fillMaxWidth().height(128.dp),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .fillMaxSize()
                     .background(
-                        Brush.radialGradient(
-                            listOf(Color(0xFFEF5350).copy(alpha = 0.15f), Color.Transparent)
-                        ),
-                        CircleShape
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFFFFEBEE), Color(0xFFFFF5F5))
+                        )
                     )
-                    .border(1.dp, SoftBorder, CircleShape),
-                contentAlignment = Alignment.Center
+                    .border(1.dp, Color(0xFFFFD5D5), RoundedCornerShape(22.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Icon(icon, contentDescription = null, tint = ProgressPrimary, modifier = Modifier.size(21.dp))
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.jp_listening),
+                        contentDescription = "Mascot Review",
+                        modifier = Modifier.size(92.dp),
+                        contentScale = ContentScale.Fit
+                    )
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(62.dp)) {
+                            CircularProgressIndicator(
+                                progress = { reviewVal.toFloat() / 30f },
+                                color = AccentRed,
+                                strokeWidth = 5.dp,
+                                trackColor = Color(0xFFFFEBEE),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Text(
+                                text = "$reviewVal/30",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                color = TextDark
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onReviewClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("Ôn tập ngay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                title,
-                color = TextDark,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(subtitle, color = TextGray, fontSize = 12.sp, lineHeight = 16.sp)
         }
     }
 }
@@ -509,35 +551,82 @@ fun DailyTasksSection(
     onAddTaskClick: () -> Unit,
     onTaskClick: (DailyTask) -> Unit
 ) {
+    val completedTasks = tasks.count { it.current >= it.target }
+    val totalTasks = tasks.size
+    val taskProgress = if (totalTasks == 0) 0f else completedTasks.toFloat() / totalTasks.toFloat()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, SoftBorder),
+        border = BorderStroke(2.dp, Color(0xFFD32F2F)), // Bold red border
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("Nhiệm vụ hôm nay", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = TextDark)
-                }
-                IconButton(onClick = onAddTaskClick) {
-                    Icon(Icons.Default.Add, contentDescription = "Thêm", tint = ProgressPrimary)
+                Text(
+                    text = "Nhiệm vụ hằng ngày",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = TextDark
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$completedTasks/$totalTasks",
+                        color = ProgressPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(onClick = onAddTaskClick, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Thêm nhiệm vụ",
+                            tint = ProgressPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            LinearProgressIndicator(
+                progress = { taskProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(999.dp)),
+                color = ProgressPrimary,
+                trackColor = Color(0xFFFFEBEE)
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
 
             if (tasks.isEmpty()) {
-                Text("Chưa có nhiệm vụ nào. Cố gắng từng ngày nha", color = TextGray, fontSize = 14.sp)
+                Text(
+                    text = "Chưa có nhiệm vụ nào cho hôm nay. Nhấn nút + để thêm nhiệm vụ mới!",
+                    color = TextGray,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
             } else {
                 tasks.forEachIndexed { index, task ->
-                    TaskItemUI(task = task, onClick = { onTaskClick(task) })
-                    if (index < tasks.size - 1) Spacer(modifier = Modifier.height(10.dp))
+                    TaskItemUI(
+                        task = task,
+                        index = index,
+                        onClick = { onTaskClick(task) }
+                    )
+                    if (index < tasks.size - 1) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                    }
                 }
             }
         }
@@ -545,28 +634,93 @@ fun DailyTasksSection(
 }
 
 @Composable
-fun TaskItemUI(task: DailyTask, onClick: () -> Unit) {
+fun TaskItemUI(task: DailyTask, index: Int, onClick: () -> Unit) {
     val done = task.current >= task.target
+    val progressFraction = if (task.target == 0) 0f else task.current.toFloat() / task.target.toFloat()
+    val progressPercent = if (task.target == 0) 0 else (task.current * 100) / task.target
+
+    // Map mascot dynamically based on task index or keyword
+    val mascotRes = when {
+        task.title.contains("ảnh", ignoreCase = true) || task.title.contains("hình", ignoreCase = true) -> R.drawable.jp_reading
+        task.title.contains("nghe", ignoreCase = true) || task.title.contains("shadowing", ignoreCase = true) -> R.drawable.jp_listening
+        task.title.contains("nói", ignoreCase = true) || task.title.contains("speaking", ignoreCase = true) -> R.drawable.jp_speaking
+        task.title.contains("ngữ pháp", ignoreCase = true) || task.title.contains("grammar", ignoreCase = true) -> R.drawable.jp_grammar
+        task.title.contains("viết", ignoreCase = true) || task.title.contains("writing", ignoreCase = true) -> R.drawable.jp_writing
+        else -> {
+            when (index % 5) {
+                0 -> R.drawable.jp_vocabulary
+                1 -> R.drawable.jp_listening
+                2 -> R.drawable.jp_speaking
+                3 -> R.drawable.jp_reading
+                else -> R.drawable.jp_grammar
+            }
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(if (done) Color(0xFFE8F5E9) else Color.White)
-            .border(1.dp, if (done) Color(0xFF2E7D32).copy(alpha = 0.3f) else SoftBorder, RoundedCornerShape(16.dp))
+            .background(if (done) Color(0xFFFFF5F5) else Color.White)
+            .border(
+                1.dp,
+                if (done) Color(0xFFFFCDD2) else SoftBorder,
+                RoundedCornerShape(16.dp)
+            )
             .clickable { onClick() }
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Icon(
-            imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.TaskAlt,
-            contentDescription = null,
-            tint = if (done) Color(0xFF2E7D32) else ProgressPrimary
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(task.title, fontWeight = FontWeight.Bold, color = TextDark)
-            Text("${task.current}/${task.target} lượt", color = TextGray, fontSize = 12.sp)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = task.title,
+                fontWeight = FontWeight.Bold,
+                color = TextDark,
+                fontSize = 14.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { progressFraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(99.dp)),
+                color = if (done) Color(0xFF2E7D32) else AccentRed,
+                trackColor = Color(0xFFF5F5F5)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${task.current}/${task.target}",
+                    color = TextGray,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "$progressPercent%",
+                    color = if (done) Color(0xFF2E7D32) else AccentRed,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.width(14.dp))
+        
+        Image(
+            painter = painterResource(id = mascotRes),
+            contentDescription = "Mascot Task",
+            modifier = Modifier.size(52.dp),
+            contentScale = ContentScale.Fit
+        )
     }
 }
 
@@ -587,16 +741,6 @@ fun AddTaskDialog(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit) {
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Tên nhiệm vụ") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = taskTextFieldColors()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = target,
-                    onValueChange = { target = it },
-                    label = { Text("Mục tiêu") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = taskTextFieldColors()

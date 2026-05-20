@@ -1,6 +1,8 @@
 package com.example.kotobee.ui.profile
 
 import android.net.Uri
+import androidx.compose.material3.Badge
+import com.example.kotobee.data.model.Badge
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -39,7 +41,8 @@ data class ProfileState(
 data class ActivityDay(
     val day: String,
     val value: Int,
-    val dateKey: String = ""
+    val dateKey: String = "",
+    val isToday: Boolean = false
 )
 
 data class RecentActivity(
@@ -66,6 +69,9 @@ class ProfileViewModel(
 
     private val _updateState = MutableStateFlow<AuthState>(AuthState.Idle)
     val updateState: StateFlow<AuthState> = _updateState
+
+    private val _badges = MutableStateFlow<List<Badge>>(emptyList())
+    val badges: StateFlow<List<Badge>> = _badges
 
     init {
         _activityData.value = buildActivityWindow()
@@ -172,6 +178,25 @@ class ProfileViewModel(
                 .get()
                 .await()
 
+            val badgesSnapshot = db.collection("users")
+                .document(userDocId)
+                .collection("badges")
+                .get()
+                .await()
+
+            val badgesList = badgesSnapshot.documents.mapNotNull { badgeDoc ->
+                Badge(
+                    id = badgeDoc.id,
+                    name = badgeDoc.getString("name") ?: "",
+                    iconName = badgeDoc.getString("iconName") ?: badgeDoc.getString("icon_name") ?: "",
+                    earnedAt = badgeDoc.getLong("earnedAt") ?: badgeDoc.getLong("earned_at") ?: 0L,
+                    goalId = badgeDoc.getString("goalId") ?: badgeDoc.getString("goal_id") ?: "",
+                    goalTitle = badgeDoc.getString("goalTitle") ?: badgeDoc.getString("goal_title") ?: ""
+                )
+            }.sortedByDescending { it.earnedAt }
+
+            _badges.value = badgesList
+
             val valuesByDate = activitySnapshot.documents
                 .associate { document ->
                     val date = document.getString("date") ?: document.id
@@ -276,48 +301,8 @@ class ProfileViewModel(
         }.take(5)
     }
 
-    private fun buildActivityWindow(valuesByDate: Map<String, Int> = emptyMap()): List<ActivityDay> {
-        val keyFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val labelFormatter = SimpleDateFormat("dd/MM", Locale("vi", "VN"))
-        val start = Calendar.getInstance().apply {
-            add(Calendar.DAY_OF_YEAR, -83)
-        }
-
-        val now = start.clone() as Calendar
-        
-        // Reset time
-        now.set(Calendar.HOUR_OF_DAY, 0)
-        now.set(Calendar.MINUTE, 0)
-        now.set(Calendar.SECOND, 0)
-        now.set(Calendar.MILLISECOND, 0)
-
-        // Lấy thứ trong tuần hiện tại và tính khoảng cách từ Thứ Hai
-        val currentDayOfWeek = now.get(Calendar.DAY_OF_WEEK)
-        val daysFromMonday = when (currentDayOfWeek) {
-            Calendar.MONDAY -> 0
-            Calendar.TUESDAY -> 1
-            Calendar.WEDNESDAY -> 2
-            Calendar.THURSDAY -> 3
-            Calendar.FRIDAY -> 4
-            Calendar.SATURDAY -> 5
-            Calendar.SUNDAY -> 6
-            else -> 0
-        }
-        
-        now.add(Calendar.DAY_OF_YEAR, -daysFromMonday)
-
-        return (0 until 84).map { offset ->
-            val day = (start.clone() as Calendar).apply {
-                add(Calendar.DAY_OF_YEAR, offset)
-            }
-            val dateKey = keyFormatter.format(day.time)
-            ActivityDay(
-                day = labelFormatter.format(day.time),
-                value = valuesByDate[dateKey]?.coerceAtLeast(0) ?: 0,
-                dateKey = dateKey
-            )
-        }
-    }
+    private fun buildActivityWindow(valuesByDate: Map<String, Int> = emptyMap()): List<ActivityDay> =
+        buildCurrentWeekActivity(valuesByDate)
 
     private fun formatRelativeDate(dateKey: String): String {
         val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -363,6 +348,39 @@ class ProfileViewModel(
         }
     }
 }
+
+fun buildCurrentWeekActivity(
+    valuesByDate: Map<String, Int> = emptyMap(),
+    today: Calendar = Calendar.getInstance()
+): List<ActivityDay> {
+    val keyFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val normalizedToday = (today.clone() as Calendar).apply { clearTime() }
+    val weekStart = (normalizedToday.clone() as Calendar).apply {
+        val daysFromMonday = (get(Calendar.DAY_OF_WEEK) + 5) % 7
+        add(Calendar.DAY_OF_YEAR, -daysFromMonday)
+    }
+
+    return WEEKDAY_LABELS.mapIndexed { index, label ->
+        val day = (weekStart.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, index)
+        }
+        val dateKey = keyFormatter.format(day.time)
+        val value = if (day.after(normalizedToday)) {
+            0
+        } else {
+            valuesByDate[dateKey]?.coerceAtLeast(0) ?: 0
+        }
+
+        ActivityDay(
+            day = label,
+            value = value,
+            dateKey = dateKey,
+            isToday = day.timeInMillis == normalizedToday.timeInMillis
+        )
+    }
+}
+
+private val WEEKDAY_LABELS = listOf("T2", "T3", "T4", "T5", "T6", "T7", "CN")
 
 private fun Calendar.clearTime() {
     set(Calendar.HOUR_OF_DAY, 0)

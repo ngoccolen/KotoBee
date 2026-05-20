@@ -14,6 +14,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import kotlin.math.max
+import java.util.Locale
 
 class GrammarRepository {
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
@@ -62,14 +63,12 @@ class GrammarRepository {
             .await()
             .toQuestions(lessonId)
 
-        if (embeddedQuestions.isNotEmpty()) return embeddedQuestions
+        val externalQuestions = getExternalQuestionsForLesson(lessonId)
 
-        return db.collection(GRAMMAR_QUESTIONS_COLLECTION)
-            .whereEqualTo("lessonId", lessonId)
-            .get()
-            .await()
-            .documents
-            .mapNotNull { it.toGrammarQuestion(lessonId) }
+        return mergeGrammarQuizQuestions(
+            embeddedQuestions = embeddedQuestions,
+            externalQuestions = externalQuestions
+        )
     }
 
     suspend fun getGrammarProgress(): Map<String, GrammarProgress> {
@@ -195,6 +194,22 @@ class GrammarRepository {
         return item.toGrammarQuestion(defaultLessonId, id)
     }
 
+    private suspend fun getExternalQuestionsForLesson(lessonId: String): List<GrammarQuestion> {
+        val documents = mutableListOf<DocumentSnapshot>()
+
+        listOf("lessonId", "grammarId", "grammar_id").forEach { field ->
+            documents += db.collection(GRAMMAR_QUESTIONS_COLLECTION)
+                .whereEqualTo(field, lessonId)
+                .get()
+                .await()
+                .documents
+        }
+
+        return documents
+            .distinctBy { it.reference.path }
+            .mapNotNull { it.toGrammarQuestion(lessonId) }
+    }
+
     private fun Map<String, Any?>.toGrammarQuestion(defaultLessonId: String, fallbackId: String): GrammarQuestion? {
         val options = (this["options"] as? List<*>)
             ?.mapNotNull { it?.toString()?.takeIf(String::isNotBlank) }
@@ -306,4 +321,27 @@ class GrammarRepository {
         const val GRAMMAR_QUESTIONS_COLLECTION = "grammar_questions"
         const val GRAMMAR_PROGRESS_COLLECTION = "grammar_progress"
     }
+}
+
+internal const val GRAMMAR_QUIZ_QUESTION_LIMIT = 10
+
+internal fun mergeGrammarQuizQuestions(
+    embeddedQuestions: List<GrammarQuestion>,
+    externalQuestions: List<GrammarQuestion>,
+    limit: Int = GRAMMAR_QUIZ_QUESTION_LIMIT,
+    shuffle: Boolean = true
+): List<GrammarQuestion> {
+    val distinctQuestions = (embeddedQuestions + externalQuestions)
+        .distinctBy { it.quizDedupeKey() }
+
+    return if (shuffle) {
+        distinctQuestions.shuffled().take(limit)
+    } else {
+        distinctQuestions.take(limit)
+    }
+}
+
+private fun GrammarQuestion.quizDedupeKey(): String {
+    return listOf(lessonId, content, correctAnswer)
+        .joinToString("|") { value -> value.trim().lowercase(Locale.US) }
 }

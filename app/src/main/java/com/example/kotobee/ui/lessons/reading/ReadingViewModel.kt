@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.Normalizer
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
@@ -39,6 +39,35 @@ data class NhkArticle(
     var isRead: Boolean = false
 )
 
+enum class ReadingDifficulty(val label: String) {
+    EASY("Dễ"),
+    MEDIUM("Trung bình"),
+    HARD("Khó")
+}
+
+fun normalizeReadingDifficulty(vararg rawValues: String?): ReadingDifficulty {
+    val token = rawValues
+        .firstOrNull { !it.isNullOrBlank() }
+        ?.toDifficultyToken()
+        ?: return ReadingDifficulty.MEDIUM
+    val parts = token.split("_").filter(String::isNotBlank)
+
+    return when {
+        "N5" in parts || token == "DE" || token.contains("EASY") -> ReadingDifficulty.EASY
+        "N4" in parts || token == "TRUNG_BINH" || token.contains("MEDIUM") -> ReadingDifficulty.MEDIUM
+        parts.any { it in listOf("N3", "N2", "N1") } || token == "KHO" || token.contains("HARD") -> ReadingDifficulty.HARD
+        else -> ReadingDifficulty.MEDIUM
+    }
+}
+
+private fun String.toDifficultyToken(): String {
+    return Normalizer.normalize(trim(), Normalizer.Form.NFD)
+        .replace("\\p{Mn}+".toRegex(), "")
+        .uppercase(Locale.US)
+        .replace("[^A-Z0-9]+".toRegex(), "_")
+        .trim('_')
+}
+
 class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
 
     private val _newsList = MutableStateFlow<List<NhkArticle>>(emptyList())
@@ -51,9 +80,9 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
         when (level) {
             "Tất cả" -> news
             "Yêu thích" -> news.filter { it.isFavorite }
-            "Dễ" -> news.filter { it.difficulty in listOf("N5", "N4", "DỄ") }
-            "Trung bình" -> news.filter { it.difficulty in listOf("N3", "TRUNG BÌNH") }
-            "Khó" -> news.filter { it.difficulty in listOf("N2", "N1", "KHÓ") }
+            ReadingDifficulty.EASY.label -> news.filter { normalizeReadingDifficulty(it.difficulty) == ReadingDifficulty.EASY }
+            ReadingDifficulty.MEDIUM.label -> news.filter { normalizeReadingDifficulty(it.difficulty) == ReadingDifficulty.MEDIUM }
+            ReadingDifficulty.HARD.label -> news.filter { normalizeReadingDifficulty(it.difficulty) == ReadingDifficulty.HARD }
             else -> news
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -102,7 +131,10 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
                             newsId = doc.getString("news_id") ?: doc.id,
                             title = doc.getString("title") ?: "Chưa có tiêu đề",
                             titleWithRuby = doc.getString("title") ?: "",
-                            difficulty = doc.getString("level")?.uppercase() ?: "N4",
+                            difficulty = normalizeReadingDifficulty(
+                                doc.getString("difficulty"),
+                                doc.getString("level")
+                            ).label,
                             htmlContent = doc.getString("body") ?: "",
                             rawText = doc.getString("body_plain") ?: "",
                             audioUrl = doc.getString("audio_url") ?: "",

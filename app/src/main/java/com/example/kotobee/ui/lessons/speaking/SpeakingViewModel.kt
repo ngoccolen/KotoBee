@@ -157,7 +157,13 @@ class SpeakingViewModel(
 
     private fun conversationErrorMessage(error: Throwable): String {
         return when (error) {
-            is HttpException -> "Backend AI trả lỗi ${error.code()}. Hãy kiểm tra Render hoặc GROQ_API_KEY."
+            is HttpException -> {
+                val detail = runCatching { error.response()?.errorBody()?.string() }.getOrNull()
+                if (!detail.isNullOrBlank()) {
+                    Log.e(TAG, "Conversation HTTP ${error.code()}: ${detail.take(500)}")
+                }
+                "Backend AI trả lỗi ${error.code()}. Hãy kiểm tra Render hoặc GEMINI_API_KEY."
+            }
             is IOException -> "Không kết nối được backend AI. Kiểm tra mạng hoặc Render đã bật."
             else -> error.message ?: "Không thể lấy phản hồi từ AI"
         }
