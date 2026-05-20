@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -84,7 +85,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
 
     // Tone màu Đỏ Nhật Bản (Japanese Red)
     val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFFFFFDFD), Color(0xFFFCE8E8)) // Nền trắng ngà ánh hồng
+        colors = listOf(Color.White, Color.White)
     )
     val primaryButtonGradient = Brush.horizontalGradient(
         colors = listOf(Color(0xFFE53935), Color(0xFFB71C1C)) // Gradient đỏ tươi sang đỏ sậm
@@ -144,9 +145,10 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
             ) {
                 Card(
                     shape = RoundedCornerShape(32.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    modifier = Modifier.fillMaxWidth()
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFB71C1C)),
+                    modifier = Modifier.fillMaxWidth().offset(y = (-20).dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
@@ -167,16 +169,12 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                             value = username,
                             onValueChange = { username = it },
                             label = { Text("Tên đăng nhập") },
-                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = primaryAccentColor) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = loginTextFieldColors(primaryAccentColor)
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -188,7 +186,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                             value = password,
                             onValueChange = { password = it },
                             label = { Text("Mật khẩu") },
-                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryAccentColor) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true,
@@ -200,11 +198,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                                     Icon(imageVector = image, contentDescription = null)
                                 }
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = loginTextFieldColors(primaryAccentColor)
                         )
 
                         Text(
@@ -228,9 +222,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                         LaunchedEffect(authState) {
                             if (authState is AuthState.Success) {
                                 loginType = "none" // Reset trạng thái
-                                val isNewUser = (authState as AuthState.Success).isNewUser
-                                val route = if (isNewUser) "onboarding" else "home"
-                                navController.navigate(route) {
+                                navController.navigate("home") {
                                     popUpTo("login") { inclusive = true }
                                 }
                             }
@@ -299,12 +291,21 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                             if (authState == AuthState.Loading && loginType == "google") {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = primaryAccentColor, strokeWidth = 2.dp)
                             } else {
-                                Text(
-                                    text = "Đăng nhập bằng Google",
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_google),
+                                        contentDescription = "Google Icon",
+                                        modifier = Modifier.size(24.dp),
+                                        tint = Color.Unspecified
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Đăng nhập bằng Google",
                                     fontSize = 16.sp,
                                     color = Color(0xFF555555),
                                     fontWeight = FontWeight.Medium
                                 )
+                                }
                             }
                         }
 
@@ -339,6 +340,9 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
         androidx.compose.material3.AlertDialog(
             // ... (Phần Dialog giữ nguyên như cũ của bạn)
             onDismissRequest = { showForgotDialog = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(28.dp),
+            modifier = Modifier.border(1.5.dp, Color(0xFFB71C1C), RoundedCornerShape(28.dp)),
             title = { Text(text = if (forgotStep == 1) "Khôi phục mật khẩu" else "Xác nhận OTP", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -347,10 +351,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                         OutlinedTextField(
                             value = resetEmail, onValueChange = { resetEmail = it },
                             label = { Text("Email") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = loginTextFieldColors(primaryAccentColor)
                         )
                     } else {
                         Text("Mã OTP đã được gửi đến $resetEmail", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 16.dp))
@@ -358,10 +359,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                             value = otpCode, onValueChange = { otpCode = it },
                             label = { Text("Mã OTP 6 số") }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = loginTextFieldColors(primaryAccentColor)
                         )
                         OutlinedTextField(
                             value = newPass, onValueChange = { newPass = it },
@@ -373,10 +371,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
                                     Icon(imageVector = image, contentDescription = null)
                                 }
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = loginTextFieldColors(primaryAccentColor)
                         )
                     }
                     if (resetMessage.isNotEmpty()) {
@@ -414,3 +409,16 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = viewMo
         )
     }
 }
+
+@Composable
+private fun loginTextFieldColors(accent: Color) = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color.White,
+    errorContainerColor = Color.White,
+    focusedBorderColor = accent,
+    unfocusedBorderColor = accent.copy(alpha = 0.65f),
+    focusedLabelColor = accent,
+    unfocusedLabelColor = Color.Gray,
+    cursorColor = accent
+)

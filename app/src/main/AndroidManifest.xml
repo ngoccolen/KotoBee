@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -11,7 +12,7 @@
     <queries>
         <package android:name="com.google.android.gms" />
         <intent>
-            <action android:name="com.google.android.youtube.api.service.START" />
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 
@@ -27,7 +28,7 @@
         android:usesCleartextTraffic="true">
 
         <service
-            android:name=".service.PlaybackService"
+            android:name=".KotoBeeApp"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>
@@ -39,6 +40,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:hardwareAccelerated="true"
             android:theme="@style/Theme.KotoBee">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

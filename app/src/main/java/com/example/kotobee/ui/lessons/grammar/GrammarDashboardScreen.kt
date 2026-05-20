@@ -2,153 +2,366 @@ package com.example.kotobee.ui.lessons.grammar
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SignalCellularAlt
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.TrackChanges
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 
-val JapaneseIndigo = Color(0xFF3F51B5)
-val DailyPracticeRed = Color(0xFFC2185B)
+val JapaneseIndigo = Color(0xFF3949AB)
+val GrammarCoral = Color(0xFFE95454)
+val GrammarMint = Color(0xFF12A88A)
+val GrammarAmber = Color(0xFFF4A51C)
+val GrammarInk = Color(0xFF25324B)
+val GrammarMuted = Color(0xFF687386)
+val GrammarSurface = Color(0xFFFFFFFF)
+val GrammarLine = Color(0xFFE53935)
 
 @Composable
-fun GrammarDashboardScreen(navController: NavController) {
+fun GrammarDashboardScreen(
+    navController: NavController,
+    viewModel: GrammarViewModel = viewModel()
+) {
+    val allLessons by viewModel.allLessons.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val lessons = allLessons
+    val levels = viewModel.buildLevelProgress()
+    val completed = levels.sumOf { it.completed }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadOverview()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9FAFB))
+            .background(GrammarSurface)
             .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+            .padding(horizontal = 20.dp, vertical = 18.dp)
     ) {
-        // Header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                modifier = Modifier.clickable { navController.popBackStack() }
-            )
-            Spacer(modifier = Modifier.width(16.dp))
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại", tint = GrammarInk)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             Column {
-                Text("Chào buổi sáng,", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("Quân!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Ngữ pháp JLPT", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = GrammarInk)
+                Text("Học theo cấp độ N5 đến N1", fontSize = 14.sp, color = GrammarMuted)
             }
         }
-        Text("Bạn đã hoàn thành 65% mục tiêu tuần này.", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        // Card Tiến độ
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text("TIẾN ĐỘ NGỮ PHÁP", color = JapaneseIndigo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text("42", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                    Text(" / 120 bài học", color = Color.Gray, modifier = Modifier.padding(bottom = 6.dp, start = 4.dp))
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    progress = { 42f / 120f },
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                    color = Color(0xFF4CAF50),
-                    trackColor = Color(0xFFE8F5E9)
-                )
+        GrammarHeroCard(
+            totalLessons = lessons.size,
+            completed = completed,
+            onStartClick = {
+                val firstLesson = lessons.firstOrNull { it.level == "N5" } ?: lessons.firstOrNull()
+                firstLesson?.let { navController.navigate("grammar_detail/${it.id}") }
             }
-        }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Card Luyện tập hàng ngày
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = DailyPracticeRed),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            GrammarStatCard(
+                title = "Cấp độ",
+                value = "5",
+                iconColor = JapaneseIndigo,
+                modifier = Modifier.weight(1f)
+            )
+            GrammarStatCard(
+                title = "Bài học",
+                value = lessons.size.toString(),
+                iconColor = GrammarMint,
+                modifier = Modifier.weight(1f)
+            )
+            GrammarStatCard(
+                title = "Đã học",
+                value = completed.toString(),
+                iconColor = GrammarAmber,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (isLoading && allLessons.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Timer, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Luyện tập hàng ngày", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Dành 15 phút để duy trì trí nhớ dài hạn.", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { /* Mở Quiz trộn */ },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Bắt đầu ngay", color = DailyPracticeRed, fontWeight = FontWeight.Bold)
-                }
+                CircularProgressIndicator(color = GrammarCoral)
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(26.dp))
+        Text("Chọn cấp độ", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = GrammarInk)
+        Text("Mỗi cấp độ có giải thích, cấu trúc, ví dụ và luyện tập nhanh.", fontSize = 14.sp, color = GrammarMuted)
+        Spacer(modifier = Modifier.height(14.dp))
 
-        Text("Các cấp độ ngữ pháp", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        levels.forEach { level ->
+            GrammarLevelCard(
+                item = level,
+                onClick = { navController.navigate("grammar_list/${level.level}") }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
-        // Danh sách Level
-        LevelCard(level = "N5", title = "Elementary", desc = "Cơ bản về cấu trúc câu, trợ từ...", progress = 0.85f, isLocked = false, onClick = { navController.navigate("grammar_list/N5") })
-        Spacer(modifier = Modifier.height(16.dp))
-        LevelCard(level = "N4", title = "Intermediate", desc = "Liên từ phức tạp, thể bị động...", progress = 0.12f, isLocked = false, onClick = { navController.navigate("grammar_list/N4") })
-        Spacer(modifier = Modifier.height(16.dp))
-        LevelCard(level = "N3", title = "Advanced", desc = "Ngữ pháp trung cấp, sắc thái tinh tế...", progress = 0f, isLocked = true, onClick = { })
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
 @Composable
-fun LevelCard(level: String, title: String, desc: String, progress: Float, isLocked: Boolean, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = !isLocked) { onClick() },
-        colors = CardDefaults.cardColors(containerColor = if (isLocked) Color(0xFFF3F4F6) else Color.White),
-        shape = RoundedCornerShape(20.dp),
-        border = if (!isLocked) BorderStroke(1.dp, JapaneseIndigo) else null
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Box(modifier = Modifier.size(40.dp).background(Color(0xFFE8EAF6), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                    Text(level, color = JapaneseIndigo, fontWeight = FontWeight.Bold)
-                }
-                if (isLocked) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Locked", tint = Color.Gray) // Thay bằng icon Lock
-                } else {
-                    Text("HOÀN THÀNH ${(progress * 100).toInt()}%", color = Color(0xFF4CAF50), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("$level $title", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isLocked) Color.Gray else Color.Black)
-            Text(desc, color = Color.Gray, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+private fun GrammarHeroCard(
+    totalLessons: Int,
+    completed: Int,
+    onStartClick: () -> Unit
+) {
+    val progress = if (totalLessons == 0) 0f else completed.toFloat() / totalLessons.toFloat()
 
-            if (!isLocked) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFFB71C1C), Color(0xFFD32F2F), Color(0xFFE53935))
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.School, contentDescription = null, tint = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Lộ trình ngữ pháp", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("Từ mẫu câu nền tảng đến diễn đạt N1", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape),
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.32f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("$completed/$totalLessons bài đã hoàn thành", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+                Spacer(modifier = Modifier.height(18.dp))
                 Button(
-                    onClick = onClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = JapaneseIndigo),
+                    onClick = onStartClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (progress > 0) "Tiếp tục học" else "Bắt đầu học")
+                    Text("Bắt đầu từ N5", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color(0xFFD32F2F))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GrammarStatCard(
+    title: String,
+    value: String,
+    iconColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, GrammarLine)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Default.TrackChanges, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = GrammarInk)
+            Text(title, fontSize = 11.sp, color = GrammarMuted)
+        }
+    }
+}
+
+@Composable
+private fun GrammarLevelCard(
+    item: GrammarLevelProgress,
+    onClick: () -> Unit
+) {
+    val levelColor = when (item.level) {
+        "N5" -> GrammarMint
+        "N4" -> JapaneseIndigo
+        "N3" -> GrammarCoral
+        "N2" -> GrammarAmber
+        else -> Color(0xFF6D5BD0)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, GrammarLine),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(levelColor.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(item.level, color = levelColor, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("${item.level} · ${item.title}", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = GrammarInk)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(item.description, fontSize = 13.sp, color = GrammarMuted, lineHeight = 18.sp)
+                }
+                Icon(
+                    imageVector = Icons.Default.AutoStories,
+                    contentDescription = null,
+                    tint = levelColor.copy(alpha = 0.8f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LinearProgressIndicator(
+                    progress = { item.progress },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(CircleShape),
+                    color = levelColor,
+                    trackColor = levelColor.copy(alpha = 0.12f)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Text("${item.completed}/${item.lessons}", color = GrammarMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+            Button(
+                onClick = onClick,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = levelColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+            ) {
+                Text("Xem bài học", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun GrammarSourceCard() {
+    val uriHandler = LocalUriHandler.current
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, GrammarLine)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = GrammarAmber)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Nguồn học liệu", fontWeight = FontWeight.ExtraBold, color = GrammarInk)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Bộ mẫu trong app được biên soạn lại ngắn gọn để học nhanh. Khi cần mở rộng dữ liệu, có thể import danh mục từ JLPT Sensei hoặc bộ nội dung Creative Commons của Hanabira.",
+                color = GrammarMuted,
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { uriHandler.openUri("https://jlptsensei.com") }) {
+                    Text("JLPT Sensei", color = GrammarCoral, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, tint = GrammarCoral, modifier = Modifier.size(16.dp))
+                }
+                TextButton(onClick = { uriHandler.openUri("https://hanabira.org") }) {
+                    Text("Hanabira", color = JapaneseIndigo, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.OpenInNew, contentDescription = null, tint = JapaneseIndigo, modifier = Modifier.size(16.dp))
                 }
             }
         }

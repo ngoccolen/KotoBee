@@ -5,5 +5,8 @@ data class Deck(
     val name: String = "",
     val description: String = "",
     val userId: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val ownerId: String = "",
+    val createdAt: Long = System.currentTimeMillis(),
+    val isPublic: Boolean = false,
+    val sharedWith: List<String> = emptyList()
 )

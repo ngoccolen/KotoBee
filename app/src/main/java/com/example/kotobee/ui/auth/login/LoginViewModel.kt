@@ -85,6 +85,10 @@ class LoginViewModel : ViewModel() {
                             "displayName" to (user.displayName ?: generatedUsername),
                             "authProvider" to "google",
                             "jlpt_level" to "N5",            // Thêm các thông số mặc định giống UserProfile
+                            "placement_level" to "",
+                            "learning_goal" to "",
+                            "focus_skills" to emptyList<String>(),
+                            "onboarding_completed" to true,
                             "learned_vocab" to 0,
                             "streak" to 0,
                             "role" to "user"

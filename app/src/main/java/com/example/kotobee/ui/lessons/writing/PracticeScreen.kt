@@ -59,15 +59,21 @@ fun PracticeScreen(
                 var currentPath by remember { mutableStateOf<Path?>(null) }
                 var isHintVisible by remember { mutableStateOf(false) }
 
-                val parsedHintPath = remember(kanjiDto.svgPaths) {
-                    val combinedPath = Path()
-                    kanjiDto.svgPaths.forEach { svgString ->
+                val parsedStrokePaths = remember(kanjiDto.svgPaths) {
+                    kanjiDto.svgPaths.mapNotNull { svgString ->
                         try {
-                            val path = PathParser.createPathFromPathData(svgString).asComposePath()
-                            combinedPath.addPath(path)
-                        } catch (e: Exception) { e.printStackTrace() }
+                            PathParser.createPathFromPathData(svgString).asComposePath()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            null
+                        }
                     }
-                    combinedPath
+                }
+
+                val parsedHintPath = remember(parsedStrokePaths) {
+                    Path().apply {
+                        parsedStrokePaths.forEach { path -> addPath(path) }
+                    }
                 }
 
                 // Chi thớt: Cả cục này có thể cuộn được nếu màn hình nhỏ
@@ -118,7 +124,7 @@ fun PracticeScreen(
 
                         Button(
                             onClick = { isHintVisible = !isHintVisible },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5E35B1))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF26A69A))
                         ) {
                             Icon(
                                 imageVector = if (isHintVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
@@ -129,7 +135,7 @@ fun PracticeScreen(
                         }
                     }
 
-                    Divider(color = Color(0xFFFFCDD2), thickness = 1.dp, modifier = Modifier.padding(horizontal = 24.dp))
+                    Divider(color = Color(0xFFE53935).copy(alpha = 0.35f), thickness = 1.dp, modifier = Modifier.padding(horizontal = 24.dp))
 
                     // ==========================================
                     // PHẦN 2: THÔNG TIN CHI TIẾT (Bottom Section)
@@ -144,10 +150,10 @@ fun PracticeScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text("🔹 Kunyomi: ", color = Color.Gray, fontSize = 14.sp)
-                        Text(kanjiDto.kunyomi.ifEmpty { "Không có" }, fontSize = 18.sp, color = Color(0xFF1976D2), modifier = Modifier.padding(start = 16.dp, bottom = 8.dp))
+                        Text(kanjiDto.kunyomi.ifEmpty { "Không có" }, fontSize = 18.sp, color = Color(0xFFE53935), modifier = Modifier.padding(start = 16.dp, bottom = 8.dp))
 
                         Text("🔹 Onyomi: ", color = Color.Gray, fontSize = 14.sp)
-                        Text(kanjiDto.onyomi.ifEmpty { "Không có" }, fontSize = 18.sp, color = Color(0xFF1976D2), modifier = Modifier.padding(start = 16.dp, bottom = 16.dp))
+                        Text(kanjiDto.onyomi.ifEmpty { "Không có" }, fontSize = 18.sp, color = Color(0xFFE53935), modifier = Modifier.padding(start = 16.dp, bottom = 16.dp))
 
                         Text("Ý nghĩa", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF333333))
                         Text(kanjiDto.meaning.uppercase(), fontSize = 16.sp, color = Color(0xFF333333), modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 16.dp))
@@ -175,15 +181,9 @@ fun PracticeScreen(
                                 .background(Color.White, RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Tạm thời hiển thị lại hình SVG mẫu ở đây
-                            // Tương lai sẽ gắn Animation chạy từ từ ở Box này
-                            KanjiDrawingBoard(
-                                modifier = Modifier.size(150.dp),
-                                paths = emptyList(), // Không cho user vẽ
-                                currentPath = null,
-                                hintPath = parsedHintPath,
-                                showHint = true, // Luôn hiện hình gốc
-                                onDragStart = {}, onDrag = {}, onDragEnd = {}
+                            AnimatedKanjiStrokeOrder(
+                                strokePaths = parsedStrokePaths,
+                                modifier = Modifier.size(150.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(40.dp))

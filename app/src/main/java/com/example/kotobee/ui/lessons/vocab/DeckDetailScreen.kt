@@ -1,5 +1,6 @@
 package com.example.kotobee.ui.lessons.vocab
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,7 +32,8 @@ fun DeckDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToAddVocab: (String) -> Unit,
     onNavigateToPractice: (String) -> Unit,
-    onNavigateToQuiz: (String) -> Unit
+    onNavigateToQuiz: (String) -> Unit,
+    onNavigateToMatch: (String) -> Unit
 ) {
     val vocabs by viewModel.vocabs.collectAsState()
     val decks by viewModel.decks.collectAsState()
@@ -39,9 +41,10 @@ fun DeckDetailScreen(
 
     val currentDeck = decks.find { it.id == deckId }
 
-    // Đếm tiến độ học tập mượt mà
+    val now = remember(vocabs) { System.currentTimeMillis() }
     val masteredCount = vocabs.count { it.level > 0 }
     val unmasteredCount = vocabs.count { it.level == 0 }
+    val dueCount = vocabs.count { it.nextReviewTime <= now }
 
     LaunchedEffect(deckId) {
         viewModel.loadVocabs(deckId)
@@ -70,17 +73,28 @@ fun DeckDetailScreen(
                         ) { Icon(Icons.Default.Quiz, contentDescription = "Trắc nghiệm") }
                         Spacer(Modifier.height(12.dp))
                     }
+                    if (vocabs.size >= 3) {
+                        SmallFloatingActionButton(
+                            onClick = { onNavigateToMatch(deckId) }, containerColor = Color.White, contentColor = PrimaryBlue, shape = CircleShape
+                        ) { Icon(Icons.Default.Extension, contentDescription = "Nối từ") }
+                        Spacer(Modifier.height(12.dp))
+                    }
                     ExtendedFloatingActionButton(
                         onClick = { onNavigateToPractice(deckId) }, containerColor = PrimaryBlue, contentColor = Color.White, shape = RoundedCornerShape(16.dp),
                         icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
-                        text = { Text("Học Flashcard", fontWeight = FontWeight.Bold) }
+                        text = {
+                            Text(
+                                text = if (dueCount > 0) "Ôn tập ($dueCount từ)" else "Học Flashcard",
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     )
                 }
             }
         }
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues), contentPadding = PaddingValues(bottom = 120.dp)) {
-            item { StatSection(masteredCount, unmasteredCount) }
+            item { StatSection(masteredCount, unmasteredCount, dueCount) }
             item {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Danh sách từ vựng (${vocabs.size})", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextDark)
@@ -104,7 +118,7 @@ fun DeckDetailScreen(
 }
 
 @Composable
-fun StatSection(mastered: Int, unmastered: Int) {
+fun StatSection(mastered: Int, unmastered: Int, dueCount: Int) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(24.dp), shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -113,8 +127,9 @@ fun StatSection(mastered: Int, unmastered: Int) {
             Text("Tiến độ học tập", fontWeight = FontWeight.Bold, color = TextDark, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatItem("Đã thuộc", mastered, TextGreen, Icons.Default.CheckCircle)
-                StatItem("Chưa thuộc", unmastered, TextRed, Icons.Default.MenuBook)
+                StatItem("Đã ôn", mastered, TextGreen, Icons.Default.CheckCircle)
+                StatItem("Cần ôn", dueCount, TextYellow, Icons.Default.Schedule)
+                StatItem("Chưa học", unmastered, TextRed, Icons.Default.MenuBook)
             }
         }
     }
@@ -141,7 +156,40 @@ fun VocabCompactCard(vocab: VocabItem, onEdit: (String, String) -> Unit, onDelet
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = vocab.kanji.ifEmpty { vocab.kana }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = vocab.kanji.ifEmpty { vocab.kana }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = Color(0xFFF3F4F6),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
+                    ) {
+                        Text(
+                            text = "Lvl ${vocab.level}",
+                            color = Color(0xFF4B5563),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    if (vocab.nextReviewTime <= System.currentTimeMillis()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            color = Color(0xFFFEF2F2),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                        ) {
+                            Text(
+                                text = "Cần ôn",
+                                color = Color(0xFFEF4444),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(text = vocab.meaning, fontSize = 14.sp, color = TextLight)
             }
 
@@ -197,13 +245,29 @@ fun EditVocabDialog(initialTerm: String, initialDefinition: String, onDismiss: (
                 OutlinedTextField(
                     value = term, onValueChange = { term = it }, label = { Text("Thuật ngữ") },
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        disabledContainerColor = Color.White,
+                        errorContainerColor = Color.White,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                        focusedLabelColor = PrimaryBlue
+                    )
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = definition, onValueChange = { definition = it }, label = { Text("Định nghĩa") },
                     modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        disabledContainerColor = Color.White,
+                        errorContainerColor = Color.White,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                        focusedLabelColor = PrimaryBlue
+                    )
                 )
                 Spacer(modifier = Modifier.height(32.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

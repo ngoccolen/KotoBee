@@ -1,6 +1,7 @@
 package com.example.kotobee.ui.lessons.vocab
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAddAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.kotobee.data.model.Deck
 
 val SurfaceWhite = Color(0xFFFFFFFF)
-val DividerColor = Color(0xFFEEF0F4)
+val DividerColor = Color(0xFFE53935).copy(alpha = 0.35f)
 
 @Composable
 fun DeckListScreen(
@@ -86,7 +88,8 @@ fun DeckListScreen(
                             deck = deck,
                             onClick = { onDeckClick(deck.id) },
                             onEdit = { name, desc -> viewModel.updateDeck(deck.id, name, desc) },
-                            onDelete = { viewModel.deleteDeck(deck.id) }
+                            onDelete = { viewModel.deleteDeck(deck.id) },
+                            onShare = { email -> viewModel.shareDeckWithEmail(deck.id, email) }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(100.dp)) } // Padding chống che chữ
@@ -110,10 +113,17 @@ fun DeckListScreen(
 }
 
 @Composable
-fun DeckItemCard(deck: Deck, onClick: () -> Unit, onEdit: (String, String) -> Unit, onDelete: () -> Unit) {
+fun DeckItemCard(
+    deck: Deck,
+    onClick: () -> Unit,
+    onEdit: (String, String) -> Unit,
+    onDelete: () -> Unit,
+    onShare: (String) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
@@ -126,7 +136,10 @@ fun DeckItemCard(deck: Deck, onClick: () -> Unit, onEdit: (String, String) -> Un
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(48.dp).background(Color(0xFFEBF3FC), CircleShape),
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color.White, CircleShape)
+                    .border(1.dp, PrimaryBlue, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Default.FolderOpen, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(24.dp))
@@ -154,6 +167,11 @@ fun DeckItemCard(deck: Deck, onClick: () -> Unit, onEdit: (String, String) -> Un
                         leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = PrimaryBlue) }
                     )
                     DropdownMenuItem(
+                        text = { Text("Chia sẻ bằng Gmail") },
+                        onClick = { expanded = false; showShareDialog = true },
+                        leadingIcon = { Icon(Icons.Default.PersonAddAlt, contentDescription = null, tint = PrimaryBlue) }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Xóa thư mục", color = TextRed) },
                         onClick = { expanded = false; showDeleteConfirm = true },
                         leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = TextRed) }
@@ -172,6 +190,18 @@ fun DeckItemCard(deck: Deck, onClick: () -> Unit, onEdit: (String, String) -> Un
             onConfirm = { name, desc ->
                 onEdit(name, desc)
                 showEditDialog = false
+            }
+        )
+    }
+
+    if (showShareDialog) {
+        ShareDeckDialog(
+            deckName = deck.name,
+            sharedWith = deck.sharedWith,
+            onDismiss = { showShareDialog = false },
+            onShare = { email ->
+                onShare(email)
+                showShareDialog = false
             }
         )
     }
@@ -196,6 +226,65 @@ fun DeckItemCard(deck: Deck, onClick: () -> Unit, onEdit: (String, String) -> Un
 
 // Hàm dùng chung cho cả việc Tạo và Sửa
 @Composable
+fun ShareDeckDialog(
+    deckName: String,
+    sharedWith: List<String>,
+    onDismiss: () -> Unit,
+    onShare: (String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Chia sẻ flashcard", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    "Thêm Gmail của bạn học vào thư mục \"$deckName\". Họ sẽ thấy thư mục này trong thư viện của họ.",
+                    color = TextLight,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Gmail") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        disabledContainerColor = Color.White,
+                        errorContainerColor = Color.White,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                        focusedLabelColor = PrimaryBlue
+                    )
+                )
+                if (sharedWith.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Đã chia sẻ: ${sharedWith.joinToString(", ")}", color = TextLight, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onShare(email) },
+                enabled = email.contains("@"),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Text("Chia sẻ", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy", color = TextLight) }
+        },
+        containerColor = Color.White
+    )
+}
+
+@Composable
 fun DeckActionDialog(title: String, initialName: String, initialDesc: String, onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
     var name by remember { mutableStateOf(initialName) }
     var description by remember { mutableStateOf(initialDesc) }
@@ -209,7 +298,15 @@ fun DeckActionDialog(title: String, initialName: String, initialDesc: String, on
                     value = name, onValueChange = { name = it },
                     placeholder = { Text("Tên thư mục", color = TextLight) },
                     singleLine = true, shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerColor),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        disabledContainerColor = Color.White,
+                        errorContainerColor = Color.White,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                        focusedLabelColor = PrimaryBlue
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -217,7 +314,15 @@ fun DeckActionDialog(title: String, initialName: String, initialDesc: String, on
                     value = description, onValueChange = { description = it },
                     placeholder = { Text("Mô tả ngắn", color = TextLight) },
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, unfocusedBorderColor = DividerColor),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        disabledContainerColor = Color.White,
+                        errorContainerColor = Color.White,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                        focusedLabelColor = PrimaryBlue
+                    ),
                     modifier = Modifier.fillMaxWidth().height(100.dp)
                 )
                 Spacer(modifier = Modifier.height(32.dp))

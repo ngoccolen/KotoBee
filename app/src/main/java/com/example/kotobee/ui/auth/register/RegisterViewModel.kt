@@ -51,12 +51,17 @@ class RegisterViewModel : ViewModel() {
                     "username" to username,
                     "created_at" to System.currentTimeMillis(),
                     "jlpt_level" to "N5",
+                    "placement_level" to "",
+                    "learning_goal" to "",
+                    "focus_skills" to emptyList<String>(),
+                    "onboarding_completed" to true,
                     "learned_vocab" to 0,
+                    "streak" to 0,
                     "role" to "user"
                 )
 
                 db.collection("users").document(username).set(userProfile).await()
-                _authState.value = AuthState.Success(isNewUser = true)
+                _authState.value = AuthState.Success(isNewUser = false)
 
             } catch (e: Exception) {
                 // ĐÃ THÊM LOGIC CHECK TRÙNG EMAIL Ở ĐÂY

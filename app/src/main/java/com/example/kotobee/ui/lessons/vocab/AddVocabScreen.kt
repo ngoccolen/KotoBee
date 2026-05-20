@@ -16,10 +16,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
-val AppBackground = Color(0xFFF8F9FB)
-val PrimaryBlue = Color(0xFF4A90E2)
-val TextDark = Color(0xFF2C3A4B)
-val TextLight = Color(0xFF8A95A5)
+val AppBackground = Color.White
+val PrimaryBlue = Color(0xFFD32F2F)
+val TextDark = Color(0xFF333333)
+val TextLight = Color(0xFF757575)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +60,15 @@ fun AddVocabScreen(
                 label = { Text("Thuật ngữ (Từ vựng)") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue)
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = Color.White,
+                    errorContainerColor = Color.White,
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                    focusedLabelColor = PrimaryBlue
+                )
             )
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -69,7 +77,15 @@ fun AddVocabScreen(
                 label = { Text("Định nghĩa (Ý nghĩa)") },
                 modifier = Modifier.fillMaxWidth().height(120.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue)
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = Color.White,
+                    errorContainerColor = Color.White,
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = PrimaryBlue.copy(alpha = 0.65f),
+                    focusedLabelColor = PrimaryBlue
+                )
             )
 
             Spacer(modifier = Modifier.height(40.dp))

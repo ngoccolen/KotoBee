@@ -39,9 +39,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
 import com.example.kotobee.data.model.VocabDetail
 
-val KotoBeeOrange = Color(0xFFF57C00)
-val KotoBeeSurface = Color(0xFFF9FAFB)
-val TextDark = Color(0xFF1F2937)
+val KotoBeeOrange = Color(0xFFE53935)
+val KotoBeeSurface = Color.White
+val TextDark = Color(0xFF333333)
 
 // ==========================================
 // 1. MÀN HÌNH DANH SÁCH BÀI BÁO
@@ -65,7 +65,6 @@ fun NewsListScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = KotoBeeSurface),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        // Đã sửa lại thành Icons.Filled cho ArrowBackIosNew để hết báo đỏ
                         Icon(Icons.Filled.ArrowBackIosNew, contentDescription = "Back", tint = TextDark)
                     }
                 }
@@ -83,7 +82,7 @@ fun NewsListScreen(
                     FilterChip(
                         selected = selectedLevel == level,
                         onClick = { viewModel.setFilterLevel(level) },
-                        label = { Text(level, fontWeight = FontWeight.Bold) },
+                        label = { Text(level, fontWeight = FontWeight.Bold, fontSize = 13.sp) },
                         leadingIcon = if (level == "Yêu thích") {
                             {
                                 Icon(
@@ -95,7 +94,7 @@ fun NewsListScreen(
                             }
                         } else null,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = KotoBeeOrange.copy(alpha = 0.2f),
+                            selectedContainerColor = KotoBeeOrange.copy(alpha = 0.15f),
                             selectedLabelColor = KotoBeeOrange
                         ),
                         border = FilterChipDefaults.filterChipBorder(
@@ -108,69 +107,72 @@ fun NewsListScreen(
             }
 
             LazyColumn(
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (filteredNewsList.isEmpty()) {
                     item {
-                        Text(
-                            text = if (selectedLevel == "Yêu thích") "Bạn chưa có bài báo yêu thích nào." else "Chưa có bài báo nào ở cấp độ này.",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(top = 32.dp).align(Alignment.CenterHorizontally)
-                        )
+                        Box(modifier = Modifier.fillMaxWidth().padding(top = 32.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = if (selectedLevel == "Yêu thích") "Bạn chưa có bài báo yêu thích nào." else "Chưa có bài báo nào ở cấp độ này.",
+                                color = Color.Gray,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
 
                 items(filteredNewsList) { article ->
-                    ElevatedCard(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onArticleClick(article.newsId) },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
-                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, KotoBeeOrange),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
                                         color = KotoBeeOrange.copy(alpha = 0.1f),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     ) {
                                         Text(
                                             text = article.difficulty,
                                             color = KotoBeeOrange,
-                                            fontSize = 11.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                         )
                                     }
 
                                     if (article.isFavorite) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.Red, modifier = Modifier.size(13.dp))
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
-                                Box(modifier = Modifier.height(60.dp)) {
+                                Box(modifier = Modifier.height(48.dp)) {
                                     FuriganaText(htmlContent = article.titleWithRuby, isTitleMode = true, onTextSelected = {})
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(text = article.date.take(10), fontSize = 12.sp, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(text = article.date.take(10), fontSize = 11.sp, color = Color.Gray)
                             }
 
                             AsyncImage(
                                 model = article.imageUrl.ifEmpty { "https://via.placeholder.com/150x150.png?text=No+Image" },
                                 contentDescription = "Cover Image",
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp)).background(Color.LightGray)
+                                modifier = Modifier.size(80.dp).clip(RoundedCornerShape(12.dp)).background(Color.LightGray)
                             )
                         }
                     }
@@ -192,22 +194,19 @@ fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackCli
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var highlightedText by remember { mutableStateOf("") }
-    var isAudioPlaying by remember { mutableStateOf(false) }
-    val exoPlayer = remember { ExoPlayer.Builder(context).build() }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Lắng nghe kết quả lưu sổ tay
+    LaunchedEffect(Unit) {
+        viewModel.saveToNotebookResult.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     LaunchedEffect(newsId) {
         viewModel.initTTS(context)
         viewModel.loadArticleDetail(newsId)
     }
-
-    LaunchedEffect(article?.audioUrl) {
-        article?.audioUrl?.takeIf { it.isNotEmpty() }?.let { url ->
-            exoPlayer.setMediaItem(MediaItem.fromUri(url))
-            exoPlayer.prepare()
-        }
-    }
-
-    DisposableEffect(Unit) { onDispose { exoPlayer.release() } }
 
     if (article == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -218,21 +217,37 @@ fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackCli
 
     Scaffold(
         containerColor = Color.White,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             AnimatedVisibility(visible = highlightedText.isNotEmpty()) {
-                ExtendedFloatingActionButton(
-                    onClick = {
-                        viewModel.translateSelectedText(highlightedText)
-                        highlightedText = ""
-                    },
-                    icon = { Icon(Icons.Outlined.Translate, contentDescription = "Dịch") },
-                    text = { Text("Dịch AI") },
-                    containerColor = KotoBeeOrange,
-                    contentColor = Color.White
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            viewModel.translateSelectedText(highlightedText)
+                            highlightedText = ""
+                        },
+                        icon = { Icon(Icons.Outlined.Translate, contentDescription = "Dịch") },
+                        text = { Text("Dịch AI") },
+                        containerColor = KotoBeeOrange,
+                        contentColor = Color.White
+                    )
+                    FloatingActionButton(
+                        onClick = { highlightedText = "" },
+                        containerColor = Color.LightGray,
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Hủy", modifier = Modifier.size(20.dp))
+                    }
+                }
             }
         }
     ) { paddingValues ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -288,7 +303,10 @@ fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackCli
                 FuriganaText(
                     htmlContent = "<h2>${article!!.titleWithRuby}</h2>",
                     isTitleMode = true,
-                    onTextSelected = {}
+                    onTextSelected = { text ->
+                        val trimmed = text.trim()
+                        if (trimmed.isNotEmpty()) highlightedText = trimmed
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -297,20 +315,11 @@ fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackCli
 
                 FuriganaText(
                     htmlContent = article!!.htmlContent,
-                    onTextSelected = { highlightedText = it.trim() }
+                    onTextSelected = { text ->
+                        val trimmed = text.trim()
+                        if (trimmed.isNotEmpty()) highlightedText = trimmed
+                    }
                 )
-
-                Spacer(modifier = Modifier.height(40.dp))
-
-                if (article!!.audioUrl.isNotEmpty()) {
-                    AudioPlayerBar(
-                        isPlaying = isAudioPlaying,
-                        onClick = {
-                            isAudioPlaying = !isAudioPlaying
-                            if (isAudioPlaying) exoPlayer.play() else exoPlayer.pause()
-                        }
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(100.dp))
             }
@@ -324,7 +333,13 @@ fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackCli
             ) {
                 VocabDetailSheet(
                     vocab = selectedVocab!!,
-                    onSaveClick = { /* Lưu vào sổ tay */ },
+                    onSaveClick = {
+                        viewModel.saveVocabToNotebook(
+                            word = selectedVocab!!.word,
+                            meaning = selectedVocab!!.meaning
+                        )
+                        viewModel.clearSelectedVocab()
+                    },
                     onSpeakClick = { viewModel.speak(selectedVocab!!.word) }
                 )
             }
@@ -342,10 +357,10 @@ fun FuriganaText(
     isTitleMode: Boolean = false,
     onTextSelected: (String) -> Unit
 ) {
-    val fontSize = if (isTitleMode) "22px" else "18px"
+    val fontSize = if (isTitleMode) "18px" else "16px"
     val fontWeight = if (isTitleMode) "bold" else "normal"
-    val lineHeight = if (isTitleMode) "1.6" else "2.4"
-    val textColor = "#1F2937"
+    val lineHeight = if (isTitleMode) "1.5" else "2.2"
+    val textColor = "#333333"
     val rubyColor = "#F57C00"
 
     val styledHtml = """
@@ -367,8 +382,8 @@ fun FuriganaText(
                     -webkit-user-select: text;
                 }
                 ruby { ruby-align: center; }
-                rt { font-size: 11px; color: $rubyColor; font-weight: bold; }
-                h2 { margin: 0; font-size: 26px; font-weight: 900; line-height: 1.6;}
+                rt { font-size: 10px; color: $rubyColor; font-weight: bold; }
+                h2 { margin: 0; font-size: 20px; font-weight: 900; line-height: 1.5;}
                 a { color: $rubyColor; text-decoration: none; }
             </style>
         </head>
@@ -395,7 +410,11 @@ fun FuriganaText(
                 }
                 addJavascriptInterface(object {
                     @JavascriptInterface
-                    fun onSelectionChanged(text: String) { onTextSelected(text) }
+                    fun onSelectionChanged(text: String) {
+                        post {
+                            onTextSelected(text)
+                        }
+                    }
                 }, "AndroidInterface")
                 webViewClient = WebViewClient()
             }
@@ -414,6 +433,7 @@ fun AudioPlayerBar(isPlaying: Boolean, onClick: () -> Unit) {
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = KotoBeeOrange.copy(alpha = 0.1f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, KotoBeeOrange.copy(alpha = 0.3f)),
         modifier = Modifier.fillMaxWidth().clickable { onClick() }
     ) {
         Row(
@@ -454,7 +474,6 @@ fun VocabDetailSheet(vocab: VocabDetail, onSaveClick: () -> Unit, onSpeakClick: 
                 onClick = onSpeakClick,
                 modifier = Modifier.size(56.dp).background(KotoBeeOrange, CircleShape)
             ) {
-                // Đã đổi sang bản AutoMirrored cho VolumeUp
                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Nghe", tint = Color.White)
             }
         }

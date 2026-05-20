@@ -3,7 +3,9 @@ package com.example.kotobee.ui.lessons.vocab
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -12,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -70,7 +74,12 @@ fun QuizScreen(
                 }
             }
         ) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
 
                 Text("Chọn nghĩa đúng của từ:", color = TextLight, fontSize = 16.sp)
@@ -83,8 +92,17 @@ fun QuizScreen(
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(currentQuestion.vocab.kanji.ifEmpty { currentQuestion.vocab.kana },
-                            fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                        Text(
+                            currentQuestion.vocab.kanji.ifEmpty { currentQuestion.vocab.kana },
+                            fontSize = 40.sp,
+                            lineHeight = 48.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark,
+                            textAlign = TextAlign.Center,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 18.dp)
+                        )
                     }
                 }
 
@@ -102,14 +120,28 @@ fun QuizScreen(
                         else -> Color.White
                     }
 
+                    val borderColor = when {
+                        selectedAnswer != null && isCorrect -> TextGreen
+                        selectedAnswer != null && isSelected && !isCorrect -> TextRed
+                        else -> Color(0xFFE5E7EB) // Gray border
+                    }
+
                     Button(
                         onClick = { if (selectedAnswer == null) selectedAnswer = option },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).height(60.dp)
-                            .border(1.dp, if (selectedAnswer != null && isCorrect) TextGreen else Color.Transparent, RoundedCornerShape(16.dp)),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).heightIn(min = 60.dp)
+                            .border(1.dp, borderColor, RoundedCornerShape(16.dp)),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = TextDark)
                     ) {
-                        Text(option, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            option,
+                            fontSize = 16.sp,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }

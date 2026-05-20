@@ -6,20 +6,62 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +70,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,29 +78,30 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.kotobee.R
+import com.example.kotobee.di.AppContainer
 import com.example.kotobee.ui.auth.AuthState
-import java.util.Calendar
 
-// Đã cập nhật bảng màu đồng bộ với HomeScreen
 object ColorPalette {
-    val Background = Color(0xFFFFFDFD)
+    val Background = Color.White
     val CardBackground = Color.White
-    val Primary = Color(0xFFE53935) // Đỏ sậm chủ đạo
-    val PrimaryLight = Color(0xFFFFEBEE) // Hồng siêu nhạt cho nền icon/track
-    val Border = Color(0xFFFFCDD2) // Viền card hồng nhạt
+    val Primary = Color(0xFFE53935)
+    val Border = Color(0xFFE53935)
+    val MutedSurface = Color(0xFFF8FAFC)
     val Text = Color(0xFF333333)
     val TextSub = Color(0xFF757575)
 }
 
 @Composable
-fun ProfileScreen(
-    navController: NavController,
-    viewModel: ProfileViewModel = viewModel()
-) {
+fun ProfileScreen(navController: NavController) {
+    val context = LocalContext.current
+    val appContainer = remember { AppContainer(context.applicationContext) }
+    val viewModel: ProfileViewModel = viewModel(
+        factory = ProfileViewModel.Factory(appContainer.cloudinaryService)
+    )
     val profileState by viewModel.profileState.collectAsState()
     val activityData by viewModel.activityData.collectAsState()
+    val recentActivities by viewModel.recentActivities.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
-    val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }
 
@@ -98,7 +142,7 @@ fun ProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(ColorPalette.Background),
-        contentPadding = PaddingValues(20.dp), // Đổi thành 20dp cho giống Home
+        contentPadding = PaddingValues(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -106,11 +150,13 @@ fun ProfileScreen(
         item { Spacer(modifier = Modifier.height(24.dp)) }
         item { QuickStatsRow(profileState) }
         item { Spacer(modifier = Modifier.height(16.dp)) }
-        item { RankCard(profileState) }
-        item { Spacer(modifier = Modifier.height(24.dp)) }
+        item { LearningSummaryCard(profileState) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+        item { StreakOverviewCard(profileState) }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
         item { ActivityChartCard(activityData) }
-        item { Spacer(modifier = Modifier.height(24.dp)) }
-        item { BadgesCard() }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+        item { RecentActivityCard(recentActivities) }
         item { Spacer(modifier = Modifier.height(24.dp)) }
         item {
             SettingsList(
@@ -146,7 +192,11 @@ fun EditProfileDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ColorPalette.Border, RoundedCornerShape(28.dp)),
+        containerColor = Color.White,
+        shape = RoundedCornerShape(28.dp),
         title = { Text(text = "Chỉnh sửa hồ sơ", fontWeight = FontWeight.Bold, color = ColorPalette.Text) },
         text = {
             Column(
@@ -199,10 +249,7 @@ fun EditProfileDialog(
                     label = { Text("Tên hiển thị") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ColorPalette.Primary,
-                        focusedLabelColor = ColorPalette.Primary
-                    )
+                    colors = profileTextFieldColors()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -223,8 +270,16 @@ fun EditProfileDialog(
                             onClick = { level = item },
                             label = { Text(item) },
                             colors = FilterChipDefaults.filterChipColors(
+                                containerColor = Color.White,
+                                labelColor = ColorPalette.Text,
                                 selectedContainerColor = ColorPalette.Primary,
                                 selectedLabelColor = Color.White
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                borderColor = ColorPalette.Border,
+                                selectedBorderColor = ColorPalette.Primary,
+                                enabled = true,
+                                selected = level == item
                             )
                         )
                     }
@@ -251,6 +306,19 @@ fun EditProfileDialog(
         }
     )
 }
+
+@Composable
+private fun profileTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color.White,
+    errorContainerColor = Color.White,
+    focusedBorderColor = ColorPalette.Primary,
+    unfocusedBorderColor = ColorPalette.Border,
+    focusedLabelColor = ColorPalette.Primary,
+    unfocusedLabelColor = ColorPalette.TextSub,
+    cursorColor = ColorPalette.Primary
+)
 
 @Composable
 fun ProfileHeader(state: ProfileState) {
@@ -336,9 +404,104 @@ fun QuickStatsRow(state: ProfileState) {
 }
 
 @Composable
+fun LearningSummaryCard(state: ProfileState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, ColorPalette.Border),
+        colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = "Tổng quan học tập",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorPalette.Text
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                SummaryMetric(
+                    icon = Icons.Filled.Star,
+                    value = state.totalStudyPoints.toString(),
+                    label = "Điểm học",
+                    modifier = Modifier.weight(1f)
+                )
+                SummaryMetric(
+                    icon = Icons.Filled.DateRange,
+                    value = state.activeDays.toString(),
+                    label = "Ngày hoạt động",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                SummaryMetric(
+                    icon = Icons.Filled.CheckCircle,
+                    value = "${state.completedTasks}/${state.totalTasks}",
+                    label = "Nhiệm vụ",
+                    modifier = Modifier.weight(1f)
+                )
+                SummaryMetric(
+                    icon = Icons.Filled.History,
+                    value = state.lastActivityLabel,
+                    label = "Gần nhất",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryMetric(
+    icon: ImageVector,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 82.dp),
+        color = Color.White,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, ColorPalette.Border)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = Color.White,
+                shape = CircleShape,
+                border = BorderStroke(1.dp, ColorPalette.Primary),
+                modifier = Modifier.size(34.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = ColorPalette.Primary, modifier = Modifier.size(18.dp))
+                }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = value,
+                    color = ColorPalette.Text,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(text = label, color = ColorPalette.TextSub, fontSize = 11.sp, lineHeight = 14.sp)
+            }
+        }
+    }
+}
+
+@Composable
 fun StatCard(icon: ImageVector, value: String, description: String, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.height(120.dp),
+        modifier = modifier.heightIn(min = 128.dp),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, ColorPalette.Border),
         colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
@@ -359,13 +522,20 @@ fun StatCard(icon: ImageVector, value: String, description: String, modifier: Mo
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ColorPalette.Text)
-            Text(text = description, fontSize = 12.sp, color = ColorPalette.TextSub)
+            Text(
+                text = description,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = ColorPalette.TextSub,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
-fun RankCard(state: ProfileState) {
+fun StreakOverviewCard(state: ProfileState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -375,43 +545,35 @@ fun RankCard(state: ProfileState) {
     ) {
         Row(
             modifier = Modifier
-                .padding(20.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "XẾP HẠNG",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ColorPalette.TextSub
-                )
-                Text(
-                    text = state.rankInfo,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = ColorPalette.Primary
-                )
-                Text(
-                    text = "Bạn đang dẫn đầu nhóm!",
-                    fontSize = 14.sp,
-                    color = ColorPalette.Text
-                )
+            Surface(
+                color = Color.White,
+                shape = CircleShape,
+                border = BorderStroke(1.dp, ColorPalette.Primary),
+                modifier = Modifier.size(58.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.LocalFireDepartment, contentDescription = null, tint = ColorPalette.Primary, modifier = Modifier.size(32.dp))
+                }
             }
-            Icon(
-                Icons.Filled.EmojiEvents,
-                contentDescription = null,
-                tint = ColorPalette.Primary,
-                modifier = Modifier.size(60.dp)
-            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Streak hiện tại", color = ColorPalette.TextSub, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("${state.streak} ngày", color = ColorPalette.Text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Học flashcard, làm nhiệm vụ hoặc luyện kanji để giữ chuỗi.", color = ColorPalette.TextSub, fontSize = 12.sp)
+            }
         }
     }
 }
 
 @Composable
 fun ActivityChartCard(activityData: List<ActivityDay>) {
-    val currentDayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-    val todayIndex = if (currentDayOfWeek == Calendar.SUNDAY) 6 else currentDayOfWeek - 2
+    val weeklyData = remember(activityData) { buildWeeklyActivity(activityData) }
+    val maxWeeklyPoints = weeklyData.maxOfOrNull { it.value }?.coerceAtLeast(1) ?: 1
+    val currentWeekPoints = weeklyData.lastOrNull()?.value ?: 0
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -427,61 +589,121 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Hoạt động tuần này",
+                    text = "Bảng theo dõi học tập",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = ColorPalette.Text
                 )
-                Text(text = "Chi tiết", fontSize = 14.sp, color = ColorPalette.Primary)
+                Text(text = "12 tuần", fontSize = 14.sp, color = ColorPalette.Primary)
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                "Mỗi cột là tổng điểm học của một tuần.",
+                color = ColorPalette.TextSub,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, ColorPalette.Border)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Tuần này", color = ColorPalette.TextSub, fontSize = 12.sp)
+                    Text(
+                        "$currentWeekPoints điểm",
+                        color = ColorPalette.Primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .height(150.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
-                activityData.forEachIndexed { index, data ->
-                    ActivityColumn(data, isHighlighted = index == todayIndex)
+                weeklyData.forEach { week ->
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            val fraction = week.value.toFloat() / maxWeeklyPoints.toFloat()
+                            val barHeight = if (week.value > 0) {
+                                (108.dp * fraction).coerceAtLeast(8.dp)
+                            } else {
+                                3.dp
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .width(16.dp)
+                                    .height(barHeight)
+                                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                    .background(
+                                        if (week.isCurrent) ColorPalette.Primary else ColorPalette.Primary.copy(alpha = 0.28f)
+                                    )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = week.label,
+                            color = if (week.isCurrent) ColorPalette.Primary else ColorPalette.TextSub,
+                            fontSize = 10.sp,
+                            fontWeight = if (week.isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-fun ActivityColumn(data: ActivityDay, isHighlighted: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        val barColor = if (isHighlighted) ColorPalette.Primary else ColorPalette.Primary.copy(alpha = 0.2f)
-        val barHeight = (data.value.toFloat() / 100 * 80).dp
-        Box(
-            modifier = Modifier
-                .width(20.dp)
-                .height(barHeight)
-                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                .background(barColor)
+private data class ActivityWeek(
+    val label: String,
+    val value: Int,
+    val isCurrent: Boolean
+)
+
+private fun buildWeeklyActivity(activityData: List<ActivityDay>): List<ActivityWeek> {
+    val weeks = activityData.takeLast(84).chunked(7).takeLast(12)
+    return weeks.mapIndexed { index, days ->
+        ActivityWeek(
+            label = if (index == weeks.lastIndex) "Nay" else "T-${weeks.lastIndex - index}",
+            value = days.sumOf { it.value },
+            isCurrent = index == weeks.lastIndex
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = data.day,
-            fontSize = 10.sp,
-            color = if (isHighlighted) ColorPalette.Text else ColorPalette.TextSub,
-            fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal
-        )
+    }.ifEmpty {
+        List(12) { index ->
+            ActivityWeek(
+                label = if (index == 11) "Nay" else "T-${11 - index}",
+                value = 0,
+                isCurrent = index == 11
+            )
+        }
     }
 }
 
-data class Badge(val name: String, val icon: ImageVector, val color: Color)
-
 @Composable
-fun BadgesCard() {
-    val badges = listOf(
-        Badge("Vua Từ Vựng", Icons.Filled.MenuBook, Color(0xFFFFB74D)),
-        Badge("Chăm Chỉ", Icons.Filled.CheckCircle, ColorPalette.Primary),
-        Badge("Sáng Tạo", Icons.Filled.AutoAwesome, Color(0xFF81D4FA))
-    )
-
+fun RecentActivityCard(activities: List<RecentActivity>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -489,20 +711,18 @@ fun BadgesCard() {
         colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Text(
-                text = "Bộ sưu tập Huy hiệu",
+                text = "Hoạt động gần đây",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorPalette.Text
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(badges) { badge ->
-                    BadgeItem(badge)
+            Spacer(modifier = Modifier.height(8.dp))
+            activities.forEachIndexed { index, activity ->
+                RecentActivityRow(activity)
+                if (index < activities.lastIndex) {
+                    Divider(color = ColorPalette.Border.copy(alpha = 0.18f), thickness = 1.dp)
                 }
             }
         }
@@ -510,29 +730,54 @@ fun BadgesCard() {
 }
 
 @Composable
-fun BadgeItem(badge: Badge) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(90.dp)) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(70.dp)
-                .clip(CircleShape)
-                .background(badge.color)
+private fun RecentActivityRow(activity: RecentActivity) {
+    val icon = when (activity.type) {
+        "streak" -> Icons.Filled.LocalFireDepartment
+        "task" -> Icons.Filled.CheckCircle
+        "study" -> Icons.Filled.MenuBook
+        else -> Icons.Filled.Info
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            color = Color.White,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, ColorPalette.Primary),
+            modifier = Modifier.size(42.dp)
         ) {
-            Icon(
-                badge.icon,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = ColorPalette.Primary, modifier = Modifier.size(22.dp))
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = activity.title,
+                color = ColorPalette.Text,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            Text(
+                text = activity.subtitle,
+                color = ColorPalette.TextSub,
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = badge.name,
-            fontSize = 12.sp,
-            color = ColorPalette.Text,
-            fontWeight = FontWeight.Medium
-        )
+        if (activity.meta.isNotBlank()) {
+            Text(
+                text = activity.meta,
+                color = ColorPalette.Primary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 
@@ -547,12 +792,6 @@ fun SettingsList(
     val settingItems = listOf(
         SettingItem("Cập nhật hồ sơ", Icons.Filled.PersonOutline) {
             onEditProfileClick()
-        },
-        SettingItem("Ghi chú & Lịch trình", Icons.Filled.EditNote) {
-        },
-        SettingItem("Bộ sưu tập Huy hiệu", Icons.Filled.AutoAwesome) {
-        },
-        SettingItem("Gói Plus & Thanh toán", Icons.Filled.AddCircleOutline) {
         },
         SettingItem("Đăng xuất", Icons.Filled.ExitToApp) {
             viewModel.signOut {
@@ -588,8 +827,9 @@ fun SettingItemRow(item: SettingItem) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            color = if (item.name == "Đăng xuất") Color(0xFFFFEBEE) else ColorPalette.PrimaryLight,
+            color = Color.White,
             shape = CircleShape,
+            border = BorderStroke(1.dp, if (item.name == "Đăng xuất") Color.Red else ColorPalette.Primary),
             modifier = Modifier.size(40.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {

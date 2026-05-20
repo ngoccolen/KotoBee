@@ -10,7 +10,7 @@ plugins {
 }
 android {
     namespace = "com.example.kotobee"
-    compileSdk = 34
+    compileSdk = 35
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -26,7 +26,7 @@ android {
     defaultConfig {
         applicationId = "com.example.kotobee"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -49,6 +49,7 @@ android {
 
 dependencies {
     // --- Lõi Android & Compose ---
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -56,7 +57,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.material3)
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.runtime)
@@ -108,6 +108,7 @@ dependencies {
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
 // Hilt
 
@@ -120,9 +121,6 @@ dependencies {
 // Guava
     implementation("com.google.guava:guava:33.2.1-android")
 
-// YouTube Player
-    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
-
 // Image Cropper
     implementation("com.vanniktech:android-image-cropper:4.6.0")
 
@@ -131,6 +129,7 @@ dependencies {
 
 // Firebase Storage
     implementation(libs.firebase.storage)
+    implementation("com.cloudinary:cloudinary-android:3.0.2")
 
     // --- Testing ---
     testImplementation(libs.junit)

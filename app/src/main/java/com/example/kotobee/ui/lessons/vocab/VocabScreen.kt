@@ -3,6 +3,7 @@ package com.example.kotobee.ui.lessons.vocab
 import android.speech.tts.TextToSpeech
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi // 👉 Đã thêm thư viện xin phép
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,9 +34,9 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 val FlashcardFront = Color(0xFFFFFFFF)
-val FlashcardBack = Color(0xFFF0F4F8)
-val TextPrimary = Color(0xFF1E293B)
-val TextSecondary = Color(0xFF64748B)
+val FlashcardBack = Color(0xFFFFFFFF)
+val TextPrimary = Color(0xFF333333)
+val TextSecondary = Color(0xFF757575)
 val ButtonRed = Color(0xFFFEE2E2)
 val TextRed = Color(0xFFEF4444)
 val ButtonGreen = Color(0xFFDCFCE7)
@@ -134,7 +136,7 @@ fun VocabularyPracticeContent(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 32.dp),
                 pageSpacing = 16.dp,
-                userScrollEnabled = false
+                userScrollEnabled = true
             ) { page ->
                 FlashcardItem(vocab = vocabList[page], onPlayAudio = playAudio)
             }
@@ -185,16 +187,29 @@ fun FlashcardItem(vocab: VocabItem, onPlayAudio: (String) -> Unit) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (rotation <= 90f) {
                 // MẶT TRƯỚC CỦA THẺ
-                Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(text = vocab.kana, fontSize = 22.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = vocab.kanji.ifEmpty { vocab.kana }, fontSize = 72.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text(
+                        text = vocab.kanji.ifEmpty { vocab.kana },
+                        fontSize = 56.sp,
+                        lineHeight = 64.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
-                // NÚT PHÁT ÂM (GÓC TRÊN CÙNG BÊN PHẢI MẶT TRƯỚC)
                 IconButton(
                     onClick = {
-                        // Ưu tiên đọc kanji nếu có, không có thì đọc kana
                         val textToRead = if (vocab.kanji.isNotBlank()) vocab.kanji else vocab.kana
                         onPlayAudio(textToRead)
                     },
@@ -203,16 +218,24 @@ fun FlashcardItem(vocab: VocabItem, onPlayAudio: (String) -> Unit) {
                 ) {
                     Icon(Icons.Filled.VolumeUp, contentDescription = "Phát âm", tint = PrimaryBlue)
                 }
-
             } else {
-                // MẶT SAU CỦA THẺ
                 Column(
                     modifier = Modifier.fillMaxSize().padding(32.dp).graphicsLayer { rotationY = 180f },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
                 ) {
                     Text("Ý nghĩa", color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = vocab.meaning, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = PrimaryBlue, textAlign = TextAlign.Center)
+                    Text(
+                        text = vocab.meaning,
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        textAlign = TextAlign.Center,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     if (vocab.example.isNotBlank()) {
                         Spacer(modifier = Modifier.height(40.dp))
@@ -237,13 +260,24 @@ fun SpacedRepetitionBottomBar(onReview: (String) -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 24.dp)
+                .padding(horizontal = 16.dp, vertical = 20.dp)
                 .navigationBarsPadding(),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            RepetitionButton(text = "Quên", containerColor = ButtonRed, contentColor = TextRed, modifier = Modifier.weight(1f)) { onReview("Quên") }
-            RepetitionButton(text = "Đã thuộc", containerColor = ButtonGreen, contentColor = TextGreen, modifier = Modifier.weight(1f)) { onReview("Đã thuộc") }
+            RepetitionButton(
+                text = "Chưa thuộc",
+                containerColor = Color.White,
+                contentColor = Color(0xFFEF4444),
+                modifier = Modifier.weight(1f)
+            ) { onReview("Chưa thuộc") }
+
+            RepetitionButton(
+                text = "Đã thuộc",
+                containerColor = Color.White,
+                contentColor = Color(0xFF22C55E),
+                modifier = Modifier.weight(1f)
+            ) { onReview("Đã thuộc") }
         }
     }
 }
@@ -253,8 +287,9 @@ fun RepetitionButton(text: String, containerColor: Color, contentColor: Color, m
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor),
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.65f)),
         shape = RoundedCornerShape(16.dp),
         modifier = modifier.height(56.dp),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-    ) { Text(text = text, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
 }

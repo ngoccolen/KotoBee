@@ -1,28 +1,50 @@
 package com.example.kotobee.data.model
 
-// Model cho chi tiết bài học ngữ pháp
 data class Grammar(
     val id: String = "",
-    val level: String = "N4",
+    val level: String = "N5",
     val title: String = "",
+    val romaji: String = "",
     val meaning: String = "",
+    val summary: String = "",
     val formation: String = "",
     val usageNote: String = "",
-    val examples: List<Example> = emptyList()
+    val tags: List<String> = emptyList(),
+    val sourceName: String = "",
+    val sourceUrl: String = "",
+    val examples: List<Example> = emptyList(),
+    val sortOrder: Int = Int.MAX_VALUE,
+    val questionCount: Int = 0
 )
 
 data class Example(
     val jp: String = "",
-    val vi: String = ""
+    val romaji: String = "",
+    val vi: String = "",
+    val en: String = ""
 )
 
-// Model cho câu hỏi trắc nghiệm/sắp xếp
 data class GrammarQuestion(
     val id: String = "",
-    val lessonId: String = "", // Khớp với id của Grammar
-    val type: String = "SORTING", // MULTIPLE_CHOICE, SORTING, FILL_BLANK
+    val lessonId: String = "",
+    val type: String = "MULTIPLE_CHOICE",
     val content: String = "",
     val options: List<String> = emptyList(),
     val correctAnswer: String = "",
     val hint: String = ""
+)
+
+data class GrammarProgress(
+    val grammarId: String = "",
+    val level: String = "N5",
+    val completed: Boolean = false,
+    val bestScore: Int = 0,
+    val correctCount: Int = 0,
+    val totalQuestions: Int = 0
+)
+
+data class GrammarQuizSaveResult(
+    val passed: Boolean,
+    val awardedPoints: Boolean,
+    val bestScore: Int
 )

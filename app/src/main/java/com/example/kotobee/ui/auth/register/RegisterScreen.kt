@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -34,26 +38,27 @@ import androidx.navigation.NavController
 import com.example.kotobee.R
 import com.example.kotobee.ui.auth.AuthState
 
+private val RedPrimary = Color(0xFFE53935)
+private val RedAccent = Color(0xFFD32F2F)
+
 @Composable
 fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = viewModel()) {
     val authState by viewModel.authState.collectAsState()
 
-    // Tone màu Đỏ Nhật Bản (Japanese Red)
     val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFFFFFDFD), Color(0xFFFCE8E8)) // Nền trắng ngà ánh hồng
+        colors = listOf(Color.White, Color.White)
     )
     val primaryButtonGradient = Brush.horizontalGradient(
-        colors = listOf(Color(0xFFE53935), Color(0xFFB71C1C)) // Gradient đỏ tươi sang đỏ sậm
+        colors = listOf(Color(0xFFE53935), Color(0xFFB71C1C))
     )
-    val primaryTextColor = Color(0xFFB71C1C) // Đỏ sậm
-    val primaryAccentColor = Color(0xFFD32F2F) // Đỏ nhấn
 
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isVisible = true }
 
+    // Đăng ký xong vào thẳng app; người dùng có thể chỉnh N trong hồ sơ.
     LaunchedEffect(authState) {
         if (authState is AuthState.Success) {
-            navController.navigate("onboarding") {
+            navController.navigate("home") {
                 popUpTo("register") { inclusive = true }
             }
         }
@@ -70,10 +75,9 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Top, // Nhích nội dung lên trên
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Khoảng cách từ đỉnh màn hình xuống ảnh
             Spacer(modifier = Modifier.height(5.dp))
 
             AnimatedVisibility(
@@ -84,70 +88,64 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                     Image(
                         painter = painterResource(id = R.drawable.logo),
                         contentDescription = "bee",
-                        modifier = Modifier.size(220.dp) // Đổi size cho bằng bên trang Login
+                        modifier = Modifier.size(200.dp)
                     )
                 }
             }
-
-            // Khoảng cách giữa ảnh và thẻ form thu hẹp lại cho gần nhau
 
             AnimatedVisibility(
                 visible = isVisible,
                 enter = fadeIn(tween(1000)) + slideInVertically(tween(1000)) { it / 3 }
             ) {
+                // Card nền trắng, viền đỏ
                 Card(
                     shape = RoundedCornerShape(32.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    modifier = Modifier.fillMaxWidth().offset(y = (-30).dp)
+                    border = BorderStroke(1.5.dp, Color(0xFFB71C1C)),
+                    modifier = Modifier.fillMaxWidth().offset(y = (-20).dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = "Tạo tài khoản mới",
-                            fontSize = 24.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF333333)
                         )
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         var username by remember { mutableStateOf("") }
                         OutlinedTextField(
                             value = username,
                             onValueChange = { username = it },
                             label = { Text("Tên đăng nhập") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = RedAccent) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = registerTextFieldColors()
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         var email by remember { mutableStateOf("") }
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it },
                             label = { Text("Email") },
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = RedAccent) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = registerTextFieldColors()
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         var password by remember { mutableStateOf("") }
                         var passwordVisible by remember { mutableStateOf(false) }
@@ -155,6 +153,7 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                             value = password,
                             onValueChange = { password = it },
                             label = { Text("Mật khẩu") },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = RedAccent) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true,
@@ -166,21 +165,18 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                                     Icon(imageVector = image, contentDescription = null)
                                 }
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = registerTextFieldColors()
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         var checkpassword by remember { mutableStateOf("") }
                         var checkPasswordVisible by remember { mutableStateOf(false) }
                         OutlinedTextField(
                             value = checkpassword,
                             onValueChange = { checkpassword = it },
-                            label = { Text("Nhập lại mật khẩu") },
+                            label = { Text("Nhập lại mật khẩu", maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = RedAccent) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true,
@@ -192,31 +188,32 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                                     Icon(imageVector = image, contentDescription = null)
                                 }
                             },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color(0xFFE5E7EB),
-                                focusedBorderColor = primaryAccentColor,
-                                focusedLabelColor = primaryAccentColor
-                            )
+                            colors = registerTextFieldColors()
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         if (authState is AuthState.Error) {
-                            Text(
-                                text = (authState as AuthState.Error).message,
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 14.sp,
-                                modifier = Modifier
-                                    .padding(bottom = 12.dp)
-                                    .align(Alignment.Start)
-                            )
+                            Surface(
+                                color = RedPrimary.copy(alpha = 0.08f),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                            ) {
+                                Text(
+                                    text = (authState as AuthState.Error).message,
+                                    color = RedAccent,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
                         }
 
+                        // Nút Đăng ký
                         Button(
                             onClick = { viewModel.register(username, email, password, checkpassword) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(54.dp),
+                                .height(52.dp),
                             shape = RoundedCornerShape(20.dp),
                             enabled = authState != AuthState.Loading,
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -241,7 +238,6 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Fix UX dòng chữ nằm chung 1 hàng
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
@@ -249,7 +245,7 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                             Text(text = "Đã có tài khoản? ", color = Color.Gray, fontSize = 14.sp)
                             Text(
                                 text = "Đăng nhập",
-                                color = primaryAccentColor,
+                                color = RedAccent,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 modifier = Modifier.clickable {
@@ -261,8 +257,20 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel = 
                 }
             }
 
-            // Spacer dưới cùng để có thể cuộn đẹp hơn
             Spacer(modifier = Modifier.height(6.dp))
         }
     }
 }
+
+@Composable
+private fun registerTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color.White,
+    errorContainerColor = Color.White,
+    focusedBorderColor = RedAccent,
+    unfocusedBorderColor = RedAccent.copy(alpha = 0.65f),
+    focusedLabelColor = RedAccent,
+    unfocusedLabelColor = Color.Gray,
+    cursorColor = RedAccent
+)

@@ -17,29 +17,43 @@ class OnboardingViewModel : ViewModel() {
     private val _onboardingState = MutableStateFlow<AuthState>(AuthState.Idle)
     val onboardingState: StateFlow<AuthState> = _onboardingState
 
-    fun saveInitialLevel(selectedLevel: String, onSuccess: () -> Unit) {
+    fun saveInitialSurvey(
+        selectedLevel: String,
+        learningGoal: String,
+        focusSkills: List<String>
+    ) {
         val email = auth.currentUser?.email ?: return
         _onboardingState.value = AuthState.Loading
 
         viewModelScope.launch {
             try {
                 val snapshot = db.collection("users").whereEqualTo("email", email).get().await()
-                if (!snapshot.isEmpty) {
-                    val docRef = snapshot.documents[0].reference
-
-                    // Khởi tạo mảng completed_lessons rỗng luôn ở đây để dùng cho Phần 2
-                    val updates = mapOf(
-                        "jlpt_level" to selectedLevel,
-                        "completed_lessons" to emptyList<String>()
-                    )
-
-                    docRef.update(updates).await()
-                    _onboardingState.value = AuthState.Success()
-                    onSuccess()
+                if (snapshot.isEmpty) {
+                    _onboardingState.value = AuthState.Error("Không tìm thấy hồ sơ người dùng")
+                    return@launch
                 }
+
+                val normalizedSkills = focusSkills.ifEmpty { listOf("Từ vựng", "Ngữ pháp", "Hán tự") }
+                val updates = mapOf(
+                    "jlpt_level" to selectedLevel,
+                    "placement_level" to selectedLevel,
+                    "learning_goal" to learningGoal,
+                    "focus_skills" to normalizedSkills,
+                    "onboarding_completed" to true,
+                    "completed_lessons" to emptyList<String>(),
+                    "skills_progress" to normalizedSkills.associateWith { 0f },
+                    "updated_at" to System.currentTimeMillis()
+                )
+
+                snapshot.documents.first().reference.update(updates).await()
+                _onboardingState.value = AuthState.Success()
             } catch (e: Exception) {
                 _onboardingState.value = AuthState.Error(e.message ?: "Lỗi lưu dữ liệu")
             }
         }
+    }
+
+    fun resetState() {
+        _onboardingState.value = AuthState.Idle
     }
 }

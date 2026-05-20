@@ -2,14 +2,18 @@ package com.example.kotobee.ui.lessons.reading
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.kotobee.data.model.VocabDetail
 import com.example.kotobee.util.TranslatorHelper
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -17,7 +21,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 data class NhkArticle(
     val newsId: String,
@@ -38,11 +44,9 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
     private val _newsList = MutableStateFlow<List<NhkArticle>>(emptyList())
     val newsList = _newsList.asStateFlow()
 
-    // TRẠNG THÁI FILTER: Tất cả, Yêu thích, Dễ, Trung bình, Khó
     private val _selectedLevel = MutableStateFlow("Tất cả")
     val selectedLevel = _selectedLevel.asStateFlow()
 
-    // DANH SÁCH ĐÃ LỌC
     val filteredNewsList = combine(_newsList, _selectedLevel) { news, level ->
         when (level) {
             "Tất cả" -> news
@@ -54,13 +58,11 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    // --- SỬA LỖI ĐÂY: LOGIC TÌM BÀI BÁO TỰ ĐỘNG ---
     private val _currentNewsId = MutableStateFlow<String?>(null)
 
     val currentArticle = combine(_newsList, _currentNewsId) { list, id ->
         if (id == null) null else list.find { it.newsId == id }
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
-    // ----------------------------------------------
 
     private val _selectedVocab = MutableStateFlow<VocabDetail?>(null)
     val selectedVocab = _selectedVocab.asStateFlow()
@@ -68,9 +70,14 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
     private val _aiTranslation = MutableStateFlow<String?>(null)
     val aiTranslation = _aiTranslation.asStateFlow()
 
+    // Thông báo kết quả lưu sổ tay
+    private val _saveToNotebookResult = MutableSharedFlow<String>()
+    val saveToNotebookResult = _saveToNotebookResult.asSharedFlow()
+
     private var tts: TextToSpeech? = null
     private val translatorHelper = TranslatorHelper()
     private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     init {
         fetchNewsFromFirebase()
@@ -144,8 +151,79 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
             if (translatorHelper.downloadModelIfNeeded()) {
                 val result = translatorHelper.translateText(text)
                 _aiTranslation.value = result
-                _selectedVocab.value = VocabDetail(word = text, meaning = result, furigana = "Dịch", hanViet = "")
+                _selectedVocab.value = VocabDetail(word = text, meaning = result, furigana = "Dịch AI", hanViet = "")
                 speak(text)
+            }
+        }
+    }
+
+    /**
+     * Lưu từ vựng vào sổ tay (Firestore).
+     * Tự tạo deck "Sổ tay từ vựng" nếu chưa có, sau đó thêm từ vào deck đó.
+     */
+    fun saveVocabToNotebook(word: String, meaning: String) {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            viewModelScope.launch {
+                _saveToNotebookResult.emit("Bạn cần đăng nhập để lưu từ vựng")
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val decksRef = db.collection("decks")
+                val notebookName = "📒 Sổ tay từ vựng"
+
+                // Tìm hoặc tạo deck "Sổ tay từ vựng"
+                val existingDeck = decksRef
+                    .whereEqualTo("ownerId", userId)
+                    .whereEqualTo("name", notebookName)
+                    .get()
+                    .await()
+
+                val deckId = if (existingDeck.isEmpty) {
+                    // Tạo deck mới
+                    val newDeckId = UUID.randomUUID().toString()
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    decksRef.document(newDeckId).set(
+                        mapOf(
+                            "id" to newDeckId,
+                            "name" to notebookName,
+                            "description" to "Từ vựng lưu từ bài đọc",
+                            "userId" to userId,
+                            "ownerId" to userId,
+                            "createdAt" to System.currentTimeMillis(),
+                            "sharedWith" to emptyList<String>()
+                        )
+                    ).await()
+                    newDeckId
+                } else {
+                    existingDeck.documents.first().id
+                }
+
+                // Thêm từ vựng vào deck
+                val vocabId = UUID.randomUUID().toString()
+                db.collection("decks").document(deckId)
+                    .collection("vocabs").document(vocabId)
+                    .set(
+                        mapOf(
+                            "id" to vocabId,
+                            "deckId" to deckId,
+                            "kanji" to word,
+                            "kana" to word,
+                            "meaning" to meaning,
+                            "example" to "",
+                            "exampleMeaning" to "",
+                            "level" to 0,
+                            "nextReviewTime" to System.currentTimeMillis()
+                        )
+                    ).await()
+
+                _saveToNotebookResult.emit("✅ Đã lưu \"$word\" vào sổ tay!")
+            } catch (e: Exception) {
+                Log.e("ReadingViewModel", "Lỗi lưu sổ tay: ${e.message}")
+                _saveToNotebookResult.emit("❌ Lỗi lưu từ vựng: ${e.message}")
             }
         }
     }

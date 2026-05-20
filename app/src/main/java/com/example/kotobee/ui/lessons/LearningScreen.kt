@@ -1,110 +1,101 @@
 package com.example.kotobee.ui.lessons
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.kotobee.R
-import com.example.kotobee.ui.home.HomeViewModel
+import com.example.kotobee.ui.home.CardBorderColor
+import com.example.kotobee.ui.home.ProgressPrimary
 import com.example.kotobee.ui.home.TextDark
 import com.example.kotobee.ui.home.TextGray
+import com.example.kotobee.ui.home.ThemeBackground
 
-// Tái sử dụng lại mã màu từ HomeScreen để đảm bảo tính đồng bộ
-val ThemeBackground = Color(0xFFFFFDFD)
-val CardBorderColor = Color(0xFFFFCDD2)
-val ProgressPrimary = Color(0xFFE53935)
-val ProgressTrack = Color(0xFFFFEBEE)
+private data class SkillDestination(
+    val name: String,
+    val subtitle: String,
+    val imageRes: Int,
+    val icon: ImageVector,
+    val route: String?
+)
 
 @Composable
 fun LearningScreen(
     navController: NavController,
-    viewModel: HomeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToLesson: (String) -> Unit = { route -> navController.navigate(route) }
 ) {
-    val userProfile by viewModel.userProfile.collectAsState()
-
-    // Danh sách các kỹ năng cốt lõi (Có thể lấy từ skills_progress của UserProfile)
     val skills = listOf(
-        Pair("Từ vựng", R.drawable.jp_vocabulary),
-        Pair("Ngữ pháp", R.drawable.jp_grammar),
-        Pair("Nghe hiểu", R.drawable.jp_listening), // Đảm bảo bạn có các ảnh này trong res/drawable
-        Pair("Đọc hiểu", R.drawable.jp_reading),
-        Pair("Hán tự", R.drawable.jp_writing),
-        Pair("Luyện thi", R.drawable.jp_grammar) // Icon tạm cho mục Luyện thi
+        SkillDestination("Từ vựng", "Flashcard, quiz và lặp lại ngắt quãng", R.drawable.jp_vocabulary, Icons.Default.Bookmarks, "deck_list"),
+        SkillDestination("Ngữ pháp", "Mẫu câu, ví dụ và bài tập theo JLPT", R.drawable.jp_grammar, Icons.Default.Translate, "grammar_dashboard"),
+        SkillDestination("Đọc hiểu", "Bài đọc, từ khóa và luyện đọc theo chủ đề", R.drawable.jp_reading, Icons.Default.MenuBook, "news_list"),
+        SkillDestination("Hán tự", "Nét chữ, âm đọc và luyện viết", R.drawable.jp_writing, Icons.Default.Edit, "kanji_list"),
+        SkillDestination("Luyện nói", "Shadowing và hội thoại AI theo chủ đề", R.drawable.jp_speaking, Icons.Default.Mic, "speaking_hub")
     )
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(ThemeBackground)
-            .padding(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 32.dp)
+            .background(ThemeBackground),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Hero Section: Nằm ở trên cùng, chiếm toàn bộ 2 cột
-        item(span = { GridItemSpan(2) }) {
-            Column {
-                Text(
-                    text = "Lộ trình rèn luyện",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextDark
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                HeroResumeCard()
-                Spacer(modifier = Modifier.height(28.dp))
-                Text(
-                    text = "Danh mục kỹ năng",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TextDark
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+        item {
+            LearningHero()
+        }
+
+        item {
+            Column(modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)) {
+                Text("Kỹ năng", color = TextDark, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
 
-        // Lưới các thẻ kỹ năng
         items(skills) { skill ->
-            val progress = userProfile.skills_progress[skill.first] ?: 0f
-            SkillGridItem(
-                skillName = skill.first,
-                imageRes = skill.second,
-                progress = progress,
+            SkillHorizontalCard(
+                skill = skill,
                 onClick = {
-                    // Điều hướng tương ứng với kỹ năng
-                    when (skill.first) {
-                        "Từ vựng" -> navController.navigate("deck_list") // Gọi vào màn hình đã có sẵn của bạn
-                        // Thêm các route khác ở đây: "Ngữ pháp" -> navController.navigate("grammar_list")...
-                        "Đọc hiểu" -> navController.navigate("news_list")
-                        "Nghe hiểu" -> navController.navigate("listening_list") // Đúng tên đã khai báo trong NavGraph
-                        "Hán tự" -> navController.navigate("kanji_list")
-
-                    }
+                    skill.route?.let(onNavigateToLesson)
                 }
             )
         }
@@ -112,112 +103,108 @@ fun LearningScreen(
 }
 
 @Composable
-fun HeroResumeCard() {
-    val gradientBrush = Brush.horizontalGradient(
-        colors = listOf(Color(0xFFFF8A80), Color(0xFFE53935))
-    )
-
-    Box(
+private fun LearningHero() {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(140.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(gradientBrush)
-            .clickable { /* TODO: Chuyển thẳng vào bài học cuối cùng */ }
+            .height(118.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .background(Brush.horizontalGradient(listOf(Color(0xFFB71C1C), ProgressPrimary, Color(0xFFE53935))))
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Đang học dở", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Từ vựng N5 - Bài 4", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Nút học tiếp giả lập phong cách Retro/RPG
-                Box(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Tiếp tục ngay", color = ProgressPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
+                Text("Học tập", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Cùng nhau rèn luyện các kỹ năng nhé!",
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
             }
-
             Image(
-                painter = painterResource(id = R.drawable.jp_vocabulary), // Thay bằng icon nhân vật nếu có
-                contentDescription = "Resume",
+                painter = painterResource(id = R.drawable.jp_reading),
+                contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(80.dp)
+                modifier = Modifier.size(74.dp)
             )
         }
     }
 }
 
 @Composable
-fun SkillGridItem(skillName: String, imageRes: Int, progress: Float, onClick: () -> Unit) {
-    val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = tween(1000))
-
+private fun SkillHorizontalCard(
+    skill: SkillDestination,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.9f) // Tỷ lệ khung hình cho card vuông vắn
+            .height(112.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, CardBorderColor),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFFFFF), // Ép màu trắng tuyệt đối
+            contentColor = TextDark
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Để 0.dp và dùng viền cho sạch sẽ
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = skillName,
-                modifier = Modifier.size(56.dp),
-                contentScale = ContentScale.Fit
+                painter = painterResource(id = skill.imageRes),
+                contentDescription = skill.name,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(60.dp)
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = skillName,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextDark
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Thanh tiến trình nhỏ gọn bên dưới mỗi thẻ
-            LinearProgressIndicator(
-                progress = { animatedProgress },
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.8f)
-                    .height(6.dp)
-                    .clip(CircleShape),
-                color = ProgressPrimary,
-                trackColor = ProgressTrack,
-                strokeCap = StrokeCap.Round
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = "${(progress * 100).toInt()}%",
-                fontSize = 11.sp,
-                color = TextGray,
-                fontWeight = FontWeight.Bold
-            )
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = BorderStroke(1.dp, CardBorderColor),
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(skill.icon, contentDescription = null, tint = ProgressPrimary, modifier = Modifier.padding(6.dp))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        skill.name,
+                        color = TextDark,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    skill.subtitle,
+                    color = TextGray,
+                    fontSize = 13.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(top = 5.dp)
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = TextGray)
         }
     }
 }

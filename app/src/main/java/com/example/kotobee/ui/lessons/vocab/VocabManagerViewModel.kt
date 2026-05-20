@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.kotobee.data.model.Deck
 import com.example.kotobee.data.model.VocabItem
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -95,12 +96,48 @@ class VocabManagerViewModel : ViewModel() {
         }
     }
 
+    fun shareDeckWithEmail(deckId: String, email: String) {
+        viewModelScope.launch {
+            try {
+                val userSnapshot = db.collection("users")
+                    .whereEqualTo("email", email)
+                    .get()
+                    .await()
+
+                if (!userSnapshot.isEmpty) {
+                    val friendId = userSnapshot.documents.first().id
+                    db.collection("decks").document(deckId)
+                        .update("sharedWith", FieldValue.arrayUnion(friendId))
+                        .await()
+
+                    // Cập nhật State cục bộ
+                    val currentList = _decks.value.toMutableList()
+                    val index = currentList.indexOfFirst { it.id == deckId }
+                    if (index != -1) {
+                        val currentShared = currentList[index].sharedWith.toMutableList()
+                        if (!currentShared.contains(friendId)) {
+                            currentShared.add(friendId)
+                            currentList[index] = currentList[index].copy(sharedWith = currentShared)
+                            _decks.value = currentList
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("FirebaseError", "Lỗi chia sẻ Deck: ${e.message}")
+            }
+        }
+    }
+
     fun loadVocabs(deckId: String) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 val snapshot = db.collection("decks").document(deckId).collection("vocabs").get().await()
-                val loadedVocabs = snapshot.toObjects(VocabItem::class.java).sortedByDescending { it.nextReviewTime }
+                val now = System.currentTimeMillis()
+                val loadedVocabs = snapshot.toObjects(VocabItem::class.java).sortedWith(
+                    compareBy<VocabItem> { it.nextReviewTime > now } // Đưa các từ đến hạn ôn lên đầu
+                        .thenBy { it.nextReviewTime } // Ưu tiên các từ quá hạn sâu nhất
+                )
                 _vocabs.value = loadedVocabs
             } catch (e: Exception) {
                 Log.e("FirebaseError", "Lỗi tải Vocabs: ${e.message}")
@@ -183,13 +220,14 @@ class VocabManagerViewModel : ViewModel() {
         var nextReview = now
 
         when (difficulty) {
-            "Quên" -> {
+            "Chưa thuộc" -> {
                 newLevel = 0
                 nextReview = now + 60 * 1000L
             }
             "Đã thuộc" -> {
-                newLevel += 1
-                nextReview = now + (newLevel * 24 * 60 * 60 * 1000L)
+                newLevel = 3
+                // Đẩy lịch ôn tập sang rất xa, coi như đã thuộc hoàn toàn (ko dùng SRS nữa)
+                nextReview = now + 365L * 24 * 60 * 60 * 1000L
             }
         }
 

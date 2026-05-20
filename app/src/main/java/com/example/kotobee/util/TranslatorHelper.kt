@@ -14,13 +14,16 @@ class TranslatorHelper {
         .build()
 
     private val translator: Translator = Translation.getClient(options)
+    // Đánh dấu đã tải model xong, tránh tải lại mỗi lần dịch
+    private var isModelReady = false
 
     suspend fun downloadModelIfNeeded(): Boolean {
+        if (isModelReady) return true
         return try {
-            val conditions = DownloadConditions.Builder()
-                .requireWifi()
-                .build()
+            // Bỏ requireWifi() để hoạt động cả trên mobile data
+            val conditions = DownloadConditions.Builder().build()
             translator.downloadModelIfNeeded(conditions).await()
+            isModelReady = true
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -32,7 +35,7 @@ class TranslatorHelper {
         return try {
             translator.translate(text).await()
         } catch (e: Exception) {
-            "Translation Error: ${e.message}"
+            "Lỗi dịch: ${e.message}"
         }
     }
 

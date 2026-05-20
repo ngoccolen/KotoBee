@@ -1,0 +1,13 @@
+KotoBee kanji seed data sources
+
+- KANJIDIC2 by the Electronic Dictionary Research and Development Group.
+  Project: https://www.edrdg.org/wiki/index.php/KANJIDIC_Project
+  License: https://www.edrdg.org/edrdg/licence.html
+
+- KanjiVG by Ulrich Apel and contributors.
+  Project: https://github.com/KanjiVG/kanjivg
+  License: Creative Commons Attribution-Share Alike 3.0
+  License URL: https://creativecommons.org/licenses/by-sa/3.0/
+
+The generated app/src/main/assets/demo_kanji.json file combines kanji metadata
+from KANJIDIC2 with stroke path data from KanjiVG.
