@@ -177,7 +177,7 @@ private fun EmptyGoalCard(onCreateGoal: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Mascot
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = painterResource(id = R.drawable.logo_4),
                     contentDescription = "KotoBee",
                     modifier = Modifier.size(80.dp),
                     contentScale = ContentScale.Fit
@@ -277,9 +277,7 @@ private fun GoalRoadMap(
                             text = goal.title,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 16.sp,
-                            color = PathTextDark,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            color = PathTextDark
                         )
                         Text(
                             text = "$completedCount/${milestones.size} cột mốc hoàn thành",
@@ -305,6 +303,12 @@ private fun GoalRoadMap(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Road map with milestones
+                val logoDrawables = listOf(
+                    R.drawable.logo_1, R.drawable.logo_2, R.drawable.logo_3,
+                    R.drawable.logo_4, R.drawable.logo_5, R.drawable.logo_6,
+                    R.drawable.logo_7, R.drawable.logo_8
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -335,6 +339,32 @@ private fun GoalRoadMap(
                             isLocked = isLocked,
                             onClick = { if (isCurrent) onMilestoneClick(milestone) },
                             modifier = Modifier.offset(x = xOffset, y = yOffset)
+                        )
+
+                        // Cute mascot beside each milestone (alternating side)
+                        val mascotXOffset = if (index % 2 == 0) 210.dp else 40.dp
+                        val mascotYOffset = (index * 110 + 15).dp
+                        val mascotRes = logoDrawables[index % logoDrawables.size]
+
+                        // Mascot float/breath animation for each individual milestone
+                        val mascotInfiniteTransition = rememberInfiniteTransition(label = "mascot_float_$index")
+                        val mascotBounceY by mascotInfiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = -5f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1000 + (index * 150) % 500, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "mascotBounceY_$index"
+                        )
+
+                        Image(
+                            painter = painterResource(id = mascotRes),
+                            contentDescription = "Mascot Goal Path",
+                            modifier = Modifier
+                                .offset(x = mascotXOffset, y = mascotYOffset + mascotBounceY.dp)
+                                .size(64.dp),
+                            contentScale = ContentScale.Fit
                         )
                     }
 
@@ -544,8 +574,6 @@ private fun MilestoneNode(
                 isCurrent -> PathRed
                 else -> PathGray
             },
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
             lineHeight = 14.sp
         )
     }

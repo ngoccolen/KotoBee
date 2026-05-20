@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -116,7 +118,7 @@ private fun LearningHero() {
             modifier = Modifier
                 .fillMaxSize()
                 .background(Brush.horizontalGradient(listOf(Color(0xFFB71C1C), ProgressPrimary, Color(0xFFE53935))))
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .padding(horizontal = 18.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -129,10 +131,10 @@ private fun LearningHero() {
                 )
             }
             Image(
-                painter = painterResource(id = R.drawable.jp_reading),
+                painter = painterResource(id = R.drawable.logo_7),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(74.dp)
+                modifier = Modifier.size(96.dp)
             )
         }
     }
@@ -146,7 +148,7 @@ private fun SkillHorizontalCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(112.dp)
+            .heightIn(min = 112.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, CardBorderColor),
@@ -158,7 +160,7 @@ private fun SkillHorizontalCard(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -172,7 +174,7 @@ private fun SkillHorizontalCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .wrapContentHeight(),
                 verticalArrangement = Arrangement.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -189,17 +191,13 @@ private fun SkillHorizontalCard(
                         skill.name,
                         color = TextDark,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
                 Text(
                     skill.subtitle,
                     color = TextGray,
                     fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                     lineHeight = 18.sp,
                     modifier = Modifier.padding(top = 5.dp)
                 )

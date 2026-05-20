@@ -57,7 +57,7 @@ fun KotoBeeTopBar(
             // Left: App logo + name
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = painterResource(id = R.drawable.logo_6),
                     contentDescription = "KotoBee Logo",
                     modifier = Modifier
                         .size(38.dp)

@@ -202,8 +202,6 @@ fun FlashcardItem(vocab: VocabItem, onPlayAudio: (String) -> Unit) {
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary,
                         textAlign = TextAlign.Center,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -232,8 +230,6 @@ fun FlashcardItem(vocab: VocabItem, onPlayAudio: (String) -> Unit) {
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
                         textAlign = TextAlign.Center,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth()
                     )
 

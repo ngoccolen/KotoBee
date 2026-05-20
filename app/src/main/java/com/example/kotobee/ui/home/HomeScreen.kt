@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -257,45 +258,51 @@ fun HomeScreen(
             .fillMaxSize()
             .background(ThemeBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 22.dp)
+            .padding(bottom = 22.dp)
     ) {
-        // 1. Redesigned HomeHeader using the original dynamic state logic (styled larger)
+        // 1. Redesigned HomeHeader: Spans 100% of phone width, touching screen edges
         HomeHeader(userProfile = userProfile, dailyTasks = dailyTasks)
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 2. Learning progress cards styled with soft red gradients
-        LearningCardsSection(
-            userProfile = userProfile,
-            onLearnClick = onOpenLearning,
-            onReviewClick = onOpenVocabLibrary
-        )
-        Spacer(modifier = Modifier.height(20.dp))
+        // 2. Learning progress cards styled with soft red gradients (padded horizontal)
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            LearningCardsSection(
+                userProfile = userProfile,
+                onLearnClick = onOpenLearning,
+                onReviewClick = onOpenVocabLibrary
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 3. Goal Path Section
-        GoalPathSection(
-            goal = currentGoal,
-            onCreateGoal = { showAddGoalDialog = true },
-            onMilestoneClick = { milestone ->
-                viewModel.completeMilestone(milestone.id)
-            },
-            onDeleteGoal = { viewModel.deleteCurrentGoal() }
-        )
-        Spacer(modifier = Modifier.height(20.dp))
+        // 3. Goal Path Section (padded horizontal)
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            GoalPathSection(
+                goal = currentGoal,
+                onCreateGoal = { showAddGoalDialog = true },
+                onMilestoneClick = { milestone ->
+                    viewModel.completeMilestone(milestone.id)
+                },
+                onDeleteGoal = { viewModel.deleteCurrentGoal() }
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // 4. Daily tasks card section with a bold red border and solid white background
-        Text(
-            text = "Nhiệm vụ",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = TextDark,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
+        // 4. Daily tasks card section with a bold red border and solid white background (padded horizontal)
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Text(
+                text = "Nhiệm vụ",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = TextDark,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
 
-        DailyTasksSection(
-            tasks = dailyTasks,
-            onAddTaskClick = { showAddTaskDialog = true },
-            onTaskClick = { task -> viewModel.incrementTaskProgress(task) }
-        )
+            DailyTasksSection(
+                tasks = dailyTasks,
+                onAddTaskClick = { showAddTaskDialog = true },
+                onTaskClick = { task -> viewModel.incrementTaskProgress(task) }
+            )
+        }
         
         Spacer(modifier = Modifier.height(32.dp))
     }
@@ -306,26 +313,20 @@ fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
     val completedTasks = dailyTasks.count { it.current >= it.target }
     val totalTasks = dailyTasks.size
     val allDone = totalTasks > 0 && completedTasks == totalTasks
-    val mascotImage = if (allDone) R.drawable.logo else R.drawable.jp_vocabulary
+    val mascotImage = if (allDone) R.drawable.logo_8 else R.drawable.logo_1
     val dialogueText = if (allDone) {
         "Làm tốt lắm ${userProfile.username.ifEmpty { "cậu" }}! Đã hoàn thành hết nhiệm vụ hôm nay rồi!"
     } else {
         "Chào ${userProfile.username.ifEmpty { "cậu" }}! Hãy cùng nhau cố gắng hơn nữa nha"
     }
-    val subDialogueText = if (allDone) {
-        "Hãy nghỉ ngơi hoặc tiếp tục ôn luyện nhé! KotoBee rất tự hào về bạn!"
-    } else {
-        "Hãy hoàn thành các nhiệm vụ bên dưới để tiếp tục hành trình chinh phục tiếng Nhật nhé!"
-    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(176.dp),
-        shape = RoundedCornerShape(30.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+            .height(140.dp),
+        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
@@ -335,7 +336,6 @@ fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
                         listOf(Color(0xFFEF5350), Color(0xFFC62828))
                     )
                 )
-                .padding(horizontal = 22.dp, vertical = 20.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -343,7 +343,9 @@ fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(
-                    modifier = Modifier.weight(1.3f),
+                    modifier = Modifier
+                        .weight(1.1f)
+                        .padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -367,35 +369,24 @@ fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = dialogueText,
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        lineHeight = 25.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = subDialogueText,
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        lineHeight = 24.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 
                 Image(
                     painter = painterResource(id = mascotImage),
                     contentDescription = "KotoBee Mascot",
                     modifier = Modifier
-                        .weight(0.7f)
-                        .size(124.dp),
+                        .weight(0.9f)
+                        .fillMaxHeight(),
                     contentScale = ContentScale.Fit
                 )
             }
@@ -469,7 +460,7 @@ fun LearningCardsSection(
                     }
 
                     Image(
-                        painter = painterResource(id = R.drawable.jp_vocabulary),
+                        painter = painterResource(id = R.drawable.logo_5),
                         contentDescription = "Mascot Vocab",
                         modifier = Modifier.size(92.dp),
                         contentScale = ContentScale.Fit
@@ -502,7 +493,7 @@ fun LearningCardsSection(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.jp_listening),
+                        painter = painterResource(id = R.drawable.logo_3),
                         contentDescription = "Mascot Review",
                         modifier = Modifier.size(92.dp),
                         contentScale = ContentScale.Fit
