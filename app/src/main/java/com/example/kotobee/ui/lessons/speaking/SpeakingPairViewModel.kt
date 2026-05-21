@@ -7,6 +7,7 @@ import com.example.kotobee.data.model.SpeakingPairHistory
 import com.example.kotobee.data.model.SpeakingPairMessage
 import com.example.kotobee.data.model.SpeakingPairParticipant
 import com.example.kotobee.data.model.SpeakingPairRoom
+import com.example.kotobee.data.model.SpeakingPairTurnFeedback
 import com.example.kotobee.data.repository.SpeakingPairRepository
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ data class SpeakingPairState(
     val room: SpeakingPairRoom? = null,
     val participants: List<SpeakingPairParticipant> = emptyList(),
     val messages: List<SpeakingPairMessage> = emptyList(),
+    val turnFeedback: Map<String, SpeakingPairTurnFeedback> = emptyMap(),
     val currentUserId: String = "",
     val isLoading: Boolean = false,
     val isBusy: Boolean = false,
@@ -114,6 +116,7 @@ class SpeakingPairViewModel(
     fun submitTurn(audioFile: File, transcriptJa: String, durationMs: Long) {
         val room = _state.value.room ?: return
         if (_state.value.isSending) return
+        val recentMessages = _state.value.messages
 
         viewModelScope.launch {
             _state.value = _state.value.copy(isSending = true, errorMessage = null)
@@ -124,8 +127,21 @@ class SpeakingPairViewModel(
                     transcriptJa = transcriptJa,
                     durationMs = durationMs
                 )
-            }.onSuccess {
+            }.onSuccess { result ->
                 _state.value = _state.value.copy(isSending = false)
+                viewModelScope.launch {
+                    runCatching {
+                        repository.analyzeTurnFeedback(
+                            code = room.code,
+                            messageId = result.messageId,
+                            audioFile = audioFile,
+                            transcriptJa = result.transcriptJa,
+                            room = room,
+                            recentMessages = recentMessages
+                        )
+                    }
+                    runCatching { audioFile.delete() }
+                }
             }.onFailure { error ->
                 _state.value = _state.value.copy(
                     isSending = false,
@@ -159,6 +175,7 @@ class SpeakingPairViewModel(
             room = null,
             participants = emptyList(),
             messages = emptyList(),
+            turnFeedback = emptyMap(),
             errorMessage = null
         )
         if (room == null) {
@@ -180,6 +197,7 @@ class SpeakingPairViewModel(
             room = null,
             participants = emptyList(),
             messages = emptyList(),
+            turnFeedback = emptyMap(),
             errorMessage = null
         )
 
@@ -205,6 +223,16 @@ class SpeakingPairViewModel(
             code = code,
             onChange = { messages ->
                 _state.value = _state.value.copy(messages = messages)
+            },
+            onError = { error ->
+                _state.value = _state.value.copy(errorMessage = error.message)
+            }
+        )
+        registrations += repository.observeTurnFeedback(
+            userDocId = currentUser.userDocId,
+            code = code,
+            onChange = { feedback ->
+                _state.value = _state.value.copy(turnFeedback = feedback)
             },
             onError = { error ->
                 _state.value = _state.value.copy(errorMessage = error.message)

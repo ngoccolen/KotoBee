@@ -6,6 +6,8 @@
   "scripts": {
     "seed:grammar": "node seed-grammar-quiz.js",
     "seed:grammar:dry": "node seed-grammar-quiz.js --dry-run",
+    "backfill:leaderboard:dry": "node backfill-total-study-points.js --dry-run",
+    "backfill:leaderboard": "node backfill-total-study-points.js --write",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

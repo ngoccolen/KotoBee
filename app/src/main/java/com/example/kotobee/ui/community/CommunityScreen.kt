@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +37,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.BarChart
@@ -44,13 +46,13 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PeopleAlt
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Style
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -59,6 +61,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -92,7 +96,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.kotobee.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -102,7 +108,6 @@ import com.example.kotobee.model.CommunityPost
 import com.example.kotobee.model.SharedResourceType
 import com.example.kotobee.model.SharedStudyResource
 import com.example.kotobee.model.StudyLeaderboardEntry
-import com.example.kotobee.model.StudyLeaderboards
 import com.example.kotobee.model.StudyMessage
 import com.example.kotobee.model.StudyGroup
 import com.example.kotobee.model.StudyGroupPrivacy
@@ -127,12 +132,6 @@ private enum class CommunityTab(val label: String) {
     LEADERBOARD("BXH")
 }
 
-private enum class LeaderboardRange(val label: String) {
-    DAY("Ngày"),
-    WEEK("Tuần"),
-    MONTH("Tháng")
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityScreen(
@@ -145,6 +144,9 @@ fun CommunityScreen(
     val listState = rememberLazyListState()
 
     var selectedPostId by remember { mutableStateOf<String?>(null) }
+    var editingPost by remember { mutableStateOf<CommunityPost?>(null) }
+    var editContent by remember { mutableStateOf("") }
+    var deletingPost by remember { mutableStateOf<CommunityPost?>(null) }
 
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -183,16 +185,30 @@ fun CommunityScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
+                CommunityHeader()
                 CommunityTabs(
                     selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it }
+                    onTabSelected = { tab ->
+                        selectedTab = tab
+                        if (tab == CommunityTab.LEADERBOARD) {
+                            viewModel.loadStudyLeaderboardsIfNeeded()
+                        }
+                    }
                 )
                 if (selectedTab == CommunityTab.POSTS) {
                     PostsContent(
                         state = uiState,
                         listState = listState,
                         onLike = viewModel::likePost,
-                        onPostClick = { selectedPostId = it.id }
+                        onPostClick = { selectedPostId = it.id },
+                        canManagePost = viewModel::canManagePost,
+                        onEditPost = { post ->
+                            editingPost = post
+                            editContent = post.content
+                        },
+                        onDeletePost = { post ->
+                            deletingPost = post
+                        }
                     )
                 } else {
                     LeaderboardTabContent(
@@ -218,11 +234,128 @@ fun CommunityScreen(
                     comments = commentsMap[post.id] ?: emptyList(),
                     onBack = { selectedPostId = null },
                     onLike = { viewModel.likePost(post) },
-                    onSubmitComment = { text -> viewModel.addComment(post, text) }
+                    onSubmitComment = { text -> viewModel.addComment(post, text) },
+                    canManagePost = viewModel.canManagePost(post),
+                    onEditPost = {
+                        editingPost = post
+                        editContent = post.content
+                    },
+                    onDeletePost = {
+                        deletingPost = post
+                    }
                 )
             }
         }
 
+        editingPost?.let { post ->
+            AlertDialog(
+                onDismissRequest = { editingPost = null },
+                title = {
+                    Text("Sửa bài viết", color = TextDark, fontWeight = FontWeight.ExtraBold)
+                },
+                text = {
+                    OutlinedTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 4,
+                        placeholder = { Text("Nội dung bài viết", color = TextGray) },
+                        colors = communityTextFieldColors()
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = editContent.trim().isNotBlank() || post.imageUrls.isNotEmpty(),
+                        onClick = {
+                            viewModel.editPost(post, editContent)
+                            editingPost = null
+                        }
+                    ) {
+                        Text("Lưu", color = ProgressPrimary, fontWeight = FontWeight.ExtraBold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { editingPost = null }) {
+                        Text("Hủy", color = TextGray, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = Color.White
+            )
+        }
+
+        deletingPost?.let { post ->
+            AlertDialog(
+                onDismissRequest = { deletingPost = null },
+                title = {
+                    Text("Xóa bài viết?", color = TextDark, fontWeight = FontWeight.ExtraBold)
+                },
+                text = {
+                    Text(
+                        "Bài viết và các bình luận bên dưới sẽ bị xóa khỏi cộng đồng.",
+                        color = TextGray,
+                        lineHeight = 20.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deletePost(post)
+                            if (selectedPostId == post.id) {
+                                selectedPostId = null
+                            }
+                            deletingPost = null
+                        }
+                    ) {
+                        Text("Xóa", color = ProgressPrimary, fontWeight = FontWeight.ExtraBold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { deletingPost = null }) {
+                        Text("Hủy", color = TextGray, fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = Color.White
+            )
+        }
+
+    }
+}
+
+@Composable
+private fun CommunityHeader() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(118.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.horizontalGradient(listOf(Color(0xFFB71C1C), ProgressPrimary, Color(0xFFE53935))))
+                .padding(horizontal = 18.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Cộng đồng", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Giao lưu học hỏi và cùng nhau tiến bộ!",
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
+            Image(
+                painter = painterResource(id = R.drawable.logo_6),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(96.dp)
+            )
+        }
     }
 }
 
@@ -280,7 +413,10 @@ private fun PostsContent(
     state: CommunityUiState,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onLike: (CommunityPost) -> Unit,
-    onPostClick: (CommunityPost) -> Unit
+    onPostClick: (CommunityPost) -> Unit,
+    canManagePost: (CommunityPost) -> Boolean,
+    onEditPost: (CommunityPost) -> Unit,
+    onDeletePost: (CommunityPost) -> Unit
 ) {
     when (state) {
         is CommunityUiState.Loading -> {
@@ -309,6 +445,9 @@ private fun PostsContent(
                             post = post,
                             onLike = { onLike(post) },
                             onPostClick = { onPostClick(post) },
+                            onEdit = { onEditPost(post) },
+                            onDelete = { onDeletePost(post) },
+                            canManage = canManagePost(post),
                             isDetailView = false
                         )
                     }
@@ -385,28 +524,15 @@ private fun LeaderboardTabContent(
     state: StudyLeaderboardUiState,
     onRetry: () -> Unit
 ) {
-    var selectedRange by remember { mutableStateOf(LeaderboardRange.WEEK) }
-    val entries = state.leaderboards.entriesFor(selectedRange)
+    val entries = state.leaderboards.entries
+    val currentUserEntry = state.leaderboards.currentUserEntry
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            LeaderboardRangeChip(range = LeaderboardRange.DAY, selected = selectedRange == LeaderboardRange.DAY) { selectedRange = LeaderboardRange.DAY }
-            Spacer(modifier = Modifier.width(8.dp))
-            LeaderboardRangeChip(range = LeaderboardRange.WEEK, selected = selectedRange == LeaderboardRange.WEEK) { selectedRange = LeaderboardRange.WEEK }
-            Spacer(modifier = Modifier.width(8.dp))
-            LeaderboardRangeChip(range = LeaderboardRange.MONTH, selected = selectedRange == LeaderboardRange.MONTH) { selectedRange = LeaderboardRange.MONTH }
-        }
-
         if (state.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = ProgressPrimary)
             }
-        } else if (state.errorMessage != null) {
+        } else if (state.errorMessage != null && entries.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(state.errorMessage, color = ProgressPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -415,25 +541,47 @@ private fun LeaderboardTabContent(
             }
         } else if (entries.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                EmptyLeaderboardState(range = selectedRange)
+                EmptyLeaderboardState()
             }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp)
             ) {
-                item {
-                    LeaderboardHeader(range = selectedRange, totalUsers = entries.size)
-                    Spacer(modifier = Modifier.height(12.dp))
+                if (entries.isNotEmpty()) {
+                    item {
+                        LeaderboardHeader(totalUsers = entries.size)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    itemsIndexed(entries) { index, entry ->
+                        LeaderboardRow(
+                            rankLabel = "${index + 1}",
+                            entry = entry,
+                            points = entry.totalPoints
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
 
-                itemsIndexed(entries) { index, entry ->
-                    LeaderboardRow(
-                        rank = index + 1,
-                        entry = entry,
-                        points = entry.pointsFor(selectedRange)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                currentUserEntry?.let { entry ->
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Điểm của bạn",
+                            color = TextDark,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    }
+                    item {
+                        LeaderboardRow(
+                            rankLabel = "Bạn",
+                            entry = entry,
+                            points = entry.totalPoints
+                        )
+                    }
                 }
             }
         }
@@ -441,27 +589,7 @@ private fun LeaderboardTabContent(
 }
 
 @Composable
-private fun LeaderboardRangeChip(
-    range: LeaderboardRange,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        leadingIcon = {
-            Icon(range.icon(), contentDescription = null, modifier = Modifier.size(16.dp))
-        },
-        label = { Text(range.label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = ProgressPrimary.copy(alpha = 0.12f),
-            selectedLabelColor = ProgressPrimary
-        )
-    )
-}
-
-@Composable
-private fun LeaderboardHeader(range: LeaderboardRange, totalUsers: Int) {
+private fun LeaderboardHeader(totalUsers: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -483,7 +611,7 @@ private fun LeaderboardHeader(range: LeaderboardRange, totalUsers: Int) {
                     fontSize = 16.sp
                 )
                 Text(
-                    text = "Xếp theo điểm ${range.emptyLabel()}",
+                    text = "Xếp theo tổng điểm học tập",
                     color = TextGray,
                     fontSize = 12.sp
                 )
@@ -500,15 +628,18 @@ private fun LeaderboardHeader(range: LeaderboardRange, totalUsers: Int) {
 
 @Composable
 private fun LeaderboardRow(
-    rank: Int,
+    rankLabel: String,
     entry: StudyLeaderboardEntry,
     points: Int
 ) {
+    val containerColor = if (entry.isCurrentUser) ProgressPrimary.copy(alpha = 0.06f) else Color.White
+    val borderColor = if (entry.isCurrentUser) ProgressPrimary.copy(alpha = 0.38f) else CardBorderColor
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, CardBorderColor),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = BorderStroke(1.dp, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -518,11 +649,11 @@ private fun LeaderboardRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "$rank",
+                text = rankLabel,
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 16.sp,
-                color = TextDark,
-                modifier = Modifier.width(34.dp)
+                fontSize = 15.sp,
+                color = if (entry.isCurrentUser) ProgressPrimary else TextDark,
+                modifier = Modifier.width(42.dp)
             )
             
             AvatarImage(avatarUrl = entry.avatarUrl, name = entry.username, size = 48)
@@ -530,7 +661,11 @@ private fun LeaderboardRow(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    entry.username.ifBlank { "Người học" },
+                    if (entry.isCurrentUser) {
+                        "${entry.username.ifBlank { "Người học" }} (Bạn)"
+                    } else {
+                        entry.username.ifBlank { "Người học" }
+                    },
                     color = TextDark,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
@@ -547,7 +682,7 @@ private fun LeaderboardRow(
 }
 
 @Composable
-private fun EmptyLeaderboardState(range: LeaderboardRange) {
+private fun EmptyLeaderboardState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -556,9 +691,9 @@ private fun EmptyLeaderboardState(range: LeaderboardRange) {
             .padding(14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(range.icon(), contentDescription = null, tint = ProgressPrimary, modifier = Modifier.size(28.dp))
+        Icon(Icons.Default.BarChart, contentDescription = null, tint = ProgressPrimary, modifier = Modifier.size(28.dp))
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Chưa có điểm trong ${range.emptyLabel()}", color = TextDark, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+        Text("Chưa có điểm học tập", color = TextDark, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
         Text("BXH sẽ tự cập nhật khi người dùng phát sinh điểm học tập.", color = TextGray, fontSize = 12.sp, lineHeight = 17.sp)
     }
 }
@@ -568,8 +703,13 @@ fun CommunityPostCard(
     post: CommunityPost,
     onLike: () -> Unit,
     onPostClick: () -> Unit,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    canManage: Boolean = false,
     isDetailView: Boolean
 ) {
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -604,6 +744,34 @@ fun CommunityPostCard(
                         contentDescription = "Thích",
                         tint = if (post.isLikedByMe) ProgressPrimary else TextGray
                     )
+                }
+                if (canManage) {
+                    Box {
+                        IconButton(onClick = { isMenuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Tùy chọn", tint = TextGray)
+                        }
+                        DropdownMenu(
+                            expanded = isMenuExpanded,
+                            onDismissRequest = { isMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Sửa bài viết", color = TextDark) },
+                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = TextGray) },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    onEdit()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Xóa bài viết", color = ProgressPrimary) },
+                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = ProgressPrimary) },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    onDelete()
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1119,7 +1287,10 @@ fun PostDetailScreen(
     comments: List<Comment>,
     onBack: () -> Unit,
     onLike: () -> Unit,
-    onSubmitComment: (String) -> Unit
+    onSubmitComment: (String) -> Unit,
+    canManagePost: Boolean = false,
+    onEditPost: () -> Unit = {},
+    onDeletePost: () -> Unit = {}
 ) {
     var commentText by remember { mutableStateOf("") }
 
@@ -1189,7 +1360,15 @@ fun PostDetailScreen(
                 .padding(padding)
         ) {
             item {
-                CommunityPostCard(post = post, onLike = onLike, onPostClick = {}, isDetailView = true)
+                CommunityPostCard(
+                    post = post,
+                    onLike = onLike,
+                    onPostClick = {},
+                    onEdit = onEditPost,
+                    onDelete = onDeletePost,
+                    canManage = canManagePost,
+                    isDetailView = true
+                )
             }
 
             item {
@@ -1965,38 +2144,6 @@ private fun resourceUnit(type: SharedResourceType): String {
         SharedResourceType.POST -> "bài"
         SharedResourceType.FOLDER -> "mục"
         SharedResourceType.FLASHCARD -> "thẻ"
-    }
-}
-
-private fun StudyLeaderboards.entriesFor(range: LeaderboardRange): List<StudyLeaderboardEntry> {
-    return when (range) {
-        LeaderboardRange.DAY -> daily
-        LeaderboardRange.WEEK -> weekly
-        LeaderboardRange.MONTH -> monthly
-    }
-}
-
-private fun StudyLeaderboardEntry.pointsFor(range: LeaderboardRange): Int {
-    return when (range) {
-        LeaderboardRange.DAY -> todayPoints
-        LeaderboardRange.WEEK -> weeklyPoints
-        LeaderboardRange.MONTH -> monthlyPoints
-    }
-}
-
-private fun LeaderboardRange.icon(): ImageVector {
-    return when (this) {
-        LeaderboardRange.DAY -> Icons.Default.Star
-        LeaderboardRange.WEEK -> Icons.Default.DateRange
-        LeaderboardRange.MONTH -> Icons.Default.MenuBook
-    }
-}
-
-private fun LeaderboardRange.emptyLabel(): String {
-    return when (this) {
-        LeaderboardRange.DAY -> "ngày hôm nay"
-        LeaderboardRange.WEEK -> "tuần này"
-        LeaderboardRange.MONTH -> "tháng này"
     }
 }
 

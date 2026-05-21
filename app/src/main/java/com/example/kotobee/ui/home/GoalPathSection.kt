@@ -312,7 +312,7 @@ private fun GoalRoadMap(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((milestones.size * 110 + 60).dp)
+                        .height((milestones.size * 110 + 100).dp)
                 ) {
                     // Draw the winding road path
                     RoadPathCanvas(

@@ -15,6 +15,7 @@ data class CommunityPost(
     val imageUrls: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val timestamp: Long = System.currentTimeMillis(),
+    val updatedAt: Long = 0L,
     val likesCount: Int = 0,
     val likedBy: List<String> = emptyList(),
     val commentsCount: Int = 0,
@@ -84,13 +85,11 @@ data class StudyLeaderboardEntry(
     val avatarUrl: String = "",
     val jlptLevel: String = "N5",
     val streak: Int = 0,
-    val todayPoints: Int = 0,
-    val weeklyPoints: Int = 0,
-    val monthlyPoints: Int = 0
+    val totalPoints: Int = 0,
+    val isCurrentUser: Boolean = false
 )
 
 data class StudyLeaderboards(
-    val daily: List<StudyLeaderboardEntry> = emptyList(),
-    val weekly: List<StudyLeaderboardEntry> = emptyList(),
-    val monthly: List<StudyLeaderboardEntry> = emptyList()
+    val entries: List<StudyLeaderboardEntry> = emptyList(),
+    val currentUserEntry: StudyLeaderboardEntry? = null
 )

@@ -57,6 +57,7 @@ class RegisterViewModel : ViewModel() {
                     "onboarding_completed" to true,
                     "learned_vocab" to 0,
                     "streak" to 0,
+                    "totalStudyPoints" to 0,
                     "role" to "user"
                 )
 

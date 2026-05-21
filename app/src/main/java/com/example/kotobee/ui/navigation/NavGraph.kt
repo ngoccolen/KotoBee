@@ -218,7 +218,10 @@ fun NavGraph() {
             // --- LUỒNG ĐỌC BÁO NHK (READING) ---
             // ====================================================
             composable("news_list") {
-                val readingViewModel: ReadingViewModel = viewModel()
+                val context = LocalContext.current
+                val appContainer = remember { AppContainer(context.applicationContext) }
+                val factory = remember { ReadingViewModel.Factory(appContainer.speakingApiService) }
+                val readingViewModel: ReadingViewModel = viewModel(factory = factory)
                 NewsListScreen(
                     viewModel = readingViewModel,
                     onArticleClick = { newsId ->
@@ -233,7 +236,10 @@ fun NavGraph() {
                 arguments = listOf(navArgument("newsId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val newsId = backStackEntry.arguments?.getString("newsId") ?: ""
-                val readingViewModel: ReadingViewModel = viewModel()
+                val context = LocalContext.current
+                val appContainer = remember { AppContainer(context.applicationContext) }
+                val factory = remember { ReadingViewModel.Factory(appContainer.speakingApiService) }
+                val readingViewModel: ReadingViewModel = viewModel(factory = factory)
 
                 ReadingPracticeScreen(
                     newsId = newsId,

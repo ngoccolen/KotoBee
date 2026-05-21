@@ -1,5 +1,7 @@
 package com.example.kotobee.data.model
 
+import com.google.gson.annotations.SerializedName
+
 data class SpeakingPairRoom(
     val code: String = "",
     val topicId: String = "",
@@ -36,6 +38,32 @@ data class SpeakingPairMessage(
     val turnIndex: Int = 0,
     val durationMs: Long = 0L,
     val createdAt: Long = 0L
+)
+
+data class SpeakingPairTurnFeedback(
+    val messageId: String = "",
+    val roomCode: String = "",
+    val status: String = "pending",
+    val correctedSentenceJa: String = "",
+    val naturalSentenceJa: String = "",
+    val grammarFeedbackVi: String = "",
+    val pronunciationFeedbackVi: String = "",
+    val summaryVi: String = "",
+    val errorMessage: String = "",
+    val updatedAt: Long = 0L
+)
+
+data class SpeakingPairSubmitResult(
+    val messageId: String,
+    val transcriptJa: String
+)
+
+data class SpeakingPairTurnAnalysisResponse(
+    @SerializedName("corrected_sentence_ja") val correctedSentenceJa: String = "",
+    @SerializedName("natural_sentence_ja") val naturalSentenceJa: String = "",
+    @SerializedName("grammar_feedback_vi") val grammarFeedbackVi: String = "",
+    @SerializedName("pronunciation_feedback_vi") val pronunciationFeedbackVi: String = "",
+    @SerializedName("summary_vi") val summaryVi: String = ""
 )
 
 data class SpeakingPairHistory(

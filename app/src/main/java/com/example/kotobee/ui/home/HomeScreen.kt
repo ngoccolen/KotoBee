@@ -348,27 +348,6 @@ fun HomeHeader(userProfile: UserProfile, dailyTasks: List<DailyTask>) {
                         .padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "KotoBee",
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            fontSize = 18.sp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = userProfile.jlptLevel,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = dialogueText,

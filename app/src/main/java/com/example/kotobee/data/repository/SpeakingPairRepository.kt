@@ -5,30 +5,42 @@ import com.example.kotobee.data.model.SpeakingPairHistory
 import com.example.kotobee.data.model.SpeakingPairMessage
 import com.example.kotobee.data.model.SpeakingPairParticipant
 import com.example.kotobee.data.model.SpeakingPairRoom
+import com.example.kotobee.data.model.SpeakingPairSubmitResult
+import com.example.kotobee.data.model.SpeakingPairTurnFeedback
+import com.example.kotobee.data.service.SpeakingApiService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import kotlin.random.Random
 
 class SpeakingPairRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val storage: FirebaseStorage = FirebaseStorage.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
+    private val apiService: SpeakingApiService? = null
 ) {
     companion object {
         private const val ROOM_COLLECTION = "speaking_pair_rooms"
         private const val PARTICIPANT_COLLECTION = "participants"
         private const val MESSAGE_COLLECTION = "messages"
         private const val HISTORY_COLLECTION = "speaking_pair_history"
+        private const val FEEDBACK_COLLECTION = "speaking_pair_turn_feedback"
         private const val ROOM_TTL_MS = 2 * 60 * 60 * 1000L
     }
+
+    private val gson = Gson()
 
     data class CurrentPairUser(
         val userDocId: String,
@@ -214,11 +226,12 @@ class SpeakingPairRepository(
         audioFile: File,
         transcriptJa: String,
         durationMs: Long
-    ): Unit = withContext(Dispatchers.IO) {
+    ): SpeakingPairSubmitResult = withContext(Dispatchers.IO) {
         val user = getCurrentUser()
         val roomRef = firestore.collection(ROOM_COLLECTION).document(code)
         val room = roomRef.get().await().toObject(SpeakingPairRoom::class.java)
             ?: error("Không tìm thấy phòng.")
+        val cleanTranscript = transcriptJa.trim()
         val participants = getParticipants(code)
         if (room.status != "active") error("Phòng chưa sẵn sàng để gửi lượt nói.")
         if (room.currentTurnUserId != user.userDocId) error("Chưa đến lượt của bạn.")
@@ -247,7 +260,7 @@ class SpeakingPairRepository(
                 senderUserId = user.userDocId,
                 senderName = user.username,
                 audioUrl = audioUrl,
-                transcriptJa = transcriptJa.trim(),
+                transcriptJa = cleanTranscript,
                 turnIndex = latestRoom.turnIndex,
                 durationMs = durationMs,
                 createdAt = now
@@ -268,6 +281,83 @@ class SpeakingPairRepository(
 
         val updatedRoom = roomRef.get().await().toObject(SpeakingPairRoom::class.java) ?: room
         saveHistories(updatedRoom, getParticipants(code))
+        SpeakingPairSubmitResult(messageId = messageId, transcriptJa = cleanTranscript)
+    }
+
+    suspend fun analyzeTurnFeedback(
+        code: String,
+        messageId: String,
+        audioFile: File,
+        transcriptJa: String,
+        room: SpeakingPairRoom,
+        recentMessages: List<SpeakingPairMessage>
+    ) = withContext(Dispatchers.IO) {
+        val user = getCurrentUser()
+        saveTurnFeedback(
+            user.userDocId,
+            SpeakingPairTurnFeedback(
+                messageId = messageId,
+                roomCode = code,
+                status = "pending",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+
+        val result = runCatching {
+            val service = apiService ?: error("Backend AI is not configured.")
+            val audioBody = audioFile.asRequestBody("audio/mp4".toMediaTypeOrNull())
+            val audioPart = MultipartBody.Part.createFormData("audio", audioFile.name, audioBody)
+            val contextMessages = (recentMessages + SpeakingPairMessage(
+                id = messageId,
+                senderUserId = user.userDocId,
+                senderName = user.username,
+                transcriptJa = transcriptJa,
+                turnIndex = room.turnIndex
+            ))
+                .filter { it.transcriptJa.isNotBlank() }
+                .distinctBy { it.id }
+                .sortedWith(compareBy<SpeakingPairMessage> { it.turnIndex }.thenBy { it.createdAt })
+                .takeLast(10)
+
+            service.analyzeSpeakingPairTurn(
+                audio = audioPart,
+                transcriptJa = transcriptJa.toTextBody(),
+                roomCode = code.toTextBody(),
+                topicTitle = room.topicTitle.toTextBody(),
+                level = room.level.toTextBody(),
+                scenario = room.scenario.toTextBody(),
+                turnIndex = room.turnIndex.toString().toTextBody(),
+                recentMessages = contextMessages.toRecentMessagesJson().toTextBody()
+            )
+        }
+
+        result.onSuccess { response ->
+            saveTurnFeedback(
+                user.userDocId,
+                SpeakingPairTurnFeedback(
+                    messageId = messageId,
+                    roomCode = code,
+                    status = "ready",
+                    correctedSentenceJa = response.correctedSentenceJa,
+                    naturalSentenceJa = response.naturalSentenceJa,
+                    grammarFeedbackVi = response.grammarFeedbackVi,
+                    pronunciationFeedbackVi = response.pronunciationFeedbackVi,
+                    summaryVi = response.summaryVi,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }.onFailure { error ->
+            saveTurnFeedback(
+                user.userDocId,
+                SpeakingPairTurnFeedback(
+                    messageId = messageId,
+                    roomCode = code,
+                    status = "error",
+                    errorMessage = error.message ?: "AI chưa thể kiểm tra lượt nói này.",
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     fun observeRoom(code: String, onChange: (SpeakingPairRoom?) -> Unit, onError: (Exception) -> Unit): ListenerRegistration {
@@ -315,6 +405,32 @@ class SpeakingPairRepository(
             }
     }
 
+    fun observeTurnFeedback(
+        userDocId: String,
+        code: String,
+        onChange: (Map<String, SpeakingPairTurnFeedback>) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration {
+        return firestore.collection("users")
+            .document(userDocId)
+            .collection(FEEDBACK_COLLECTION)
+            .whereEqualTo("roomCode", code)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    onError(error)
+                    return@addSnapshotListener
+                }
+                onChange(
+                    snapshot?.documents
+                        ?.mapNotNull { document ->
+                            document.toObject(SpeakingPairTurnFeedback::class.java)?.copy(messageId = document.id)
+                        }
+                        ?.associateBy { it.messageId }
+                        .orEmpty()
+                )
+            }
+    }
+
     private suspend fun getParticipants(code: String): List<SpeakingPairParticipant> {
         return firestore.collection(ROOM_COLLECTION).document(code)
             .collection(PARTICIPANT_COLLECTION)
@@ -343,6 +459,28 @@ class SpeakingPairRepository(
                 .await()
         }
     }
+
+    private suspend fun saveTurnFeedback(userDocId: String, feedback: SpeakingPairTurnFeedback) {
+        firestore.collection("users")
+            .document(userDocId)
+            .collection(FEEDBACK_COLLECTION)
+            .document(feedback.messageId)
+            .set(feedback, SetOptions.merge())
+            .await()
+    }
+
+    private fun List<SpeakingPairMessage>.toRecentMessagesJson(): String {
+        return gson.toJson(map {
+            mapOf(
+                "speaker" to it.senderName,
+                "user_id" to it.senderUserId,
+                "text_ja" to it.transcriptJa,
+                "turn_index" to it.turnIndex
+            )
+        })
+    }
+
+    private fun String.toTextBody() = toRequestBody("text/plain".toMediaTypeOrNull())
 
     private suspend fun currentUserSnapshot(): Pair<String, DocumentSnapshot> {
         val email = auth.currentUser?.email ?: error("Vui lòng đăng nhập để tạo phòng giao tiếp.")

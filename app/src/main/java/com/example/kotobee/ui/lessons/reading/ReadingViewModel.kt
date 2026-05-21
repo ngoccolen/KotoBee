@@ -4,8 +4,11 @@ import android.content.Context
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.kotobee.data.model.JaViTranslationRequest
 import com.example.kotobee.data.model.VocabDetail
+import com.example.kotobee.data.service.SpeakingApiService
 import com.example.kotobee.util.TranslatorHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -68,7 +71,9 @@ private fun String.toDifficultyToken(): String {
         .trim('_')
 }
 
-class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
+class ReadingViewModel(
+    private val apiService: SpeakingApiService? = null
+) : ViewModel(), TextToSpeech.OnInitListener {
 
     private val _newsList = MutableStateFlow<List<NhkArticle>>(emptyList())
     val newsList = _newsList.asStateFlow()
@@ -98,6 +103,9 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
 
     private val _aiTranslation = MutableStateFlow<String?>(null)
     val aiTranslation = _aiTranslation.asStateFlow()
+
+    private val _isTranslating = MutableStateFlow(false)
+    val isTranslating = _isTranslating.asStateFlow()
 
     // Thông báo kết quả lưu sổ tay
     private val _saveToNotebookResult = MutableSharedFlow<String>()
@@ -178,14 +186,54 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
 
-    fun translateSelectedText(text: String) {
+    fun translateSelectedText(
+        text: String,
+        articleTitle: String = "",
+        articleContext: String = ""
+    ) {
+        val cleanText = text.trim()
+        if (cleanText.isBlank() || _isTranslating.value) return
+
         viewModelScope.launch {
-            if (translatorHelper.downloadModelIfNeeded()) {
-                val result = translatorHelper.translateText(text)
-                _aiTranslation.value = result
-                _selectedVocab.value = VocabDetail(word = text, meaning = result, furigana = "Dịch AI", hanViet = "")
-                speak(text)
+            _isTranslating.value = true
+            val aiResult = runCatching {
+                val service = apiService ?: error("AI translation backend is not configured.")
+                service.translateJaVi(
+                    JaViTranslationRequest(
+                        text = cleanText,
+                        articleTitle = articleTitle,
+                        articleContext = compactArticleContext(articleContext)
+                    )
+                ).translationVi.trim()
+            }.getOrNull()
+
+            if (!aiResult.isNullOrBlank()) {
+                _aiTranslation.value = aiResult
+                _selectedVocab.value = VocabDetail(word = cleanText, meaning = aiResult, furigana = "Dịch AI", hanViet = "")
+                speak(cleanText)
+                _isTranslating.value = false
+                return@launch
             }
+
+            if (translatorHelper.downloadModelIfNeeded()) {
+                val result = translatorHelper.translateText(cleanText)
+                val fallbackResult = if (result.startsWith("Lỗi dịch:")) {
+                    result
+                } else {
+                    "$result\n\n(Bản dịch offline, có thể chưa sát ngữ cảnh.)"
+                }
+                _aiTranslation.value = fallbackResult
+                _selectedVocab.value = VocabDetail(word = cleanText, meaning = fallbackResult, furigana = "Dịch offline", hanViet = "")
+                speak(cleanText)
+            } else {
+                _selectedVocab.value = VocabDetail(
+                    word = cleanText,
+                    meaning = "Không thể dịch lúc này. Vui lòng kiểm tra kết nối mạng.",
+                    furigana = "Lỗi dịch",
+                    hanViet = ""
+                )
+            }
+            _isTranslating.value = false
         }
     }
 
@@ -270,5 +318,23 @@ class ReadingViewModel : ViewModel(), TextToSpeech.OnInitListener {
         tts?.stop()
         tts?.shutdown()
         translatorHelper.close()
+    }
+
+    private fun compactArticleContext(context: String): String {
+        return context
+            .replace(Regex("<[^>]+>"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .take(4_000)
+    }
+
+    class Factory(private val apiService: SpeakingApiService) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(ReadingViewModel::class.java)) {
+                return ReadingViewModel(apiService) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
     }
 }

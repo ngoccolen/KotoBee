@@ -63,7 +63,7 @@ class AppContainer(context: Context) {
         retrofit.create(ShadowingApiService::class.java)
     }
 
-    private val speakingApiService: SpeakingApiService by lazy {
+    val speakingApiService: SpeakingApiService by lazy {
         retrofit.create(SpeakingApiService::class.java)
     }
 
@@ -76,6 +76,6 @@ class AppContainer(context: Context) {
     }
 
     val speakingPairRepository: SpeakingPairRepository by lazy {
-        SpeakingPairRepository(firestore)
+        SpeakingPairRepository(firestore = firestore, apiService = speakingApiService)
     }
 }

@@ -196,6 +196,7 @@ fun NewsListScreen(
 fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackClick: () -> Unit) {
     val article by viewModel.currentArticle.collectAsState()
     val selectedVocab by viewModel.selectedVocab.collectAsState()
+    val isTranslating by viewModel.isTranslating.collectAsState()
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -225,18 +226,30 @@ fun ReadingPracticeScreen(newsId: String, viewModel: ReadingViewModel, onBackCli
         containerColor = Color.White,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            AnimatedVisibility(visible = highlightedText.isNotEmpty()) {
+            AnimatedVisibility(visible = highlightedText.isNotEmpty() || isTranslating) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ExtendedFloatingActionButton(
                         onClick = {
-                            viewModel.translateSelectedText(highlightedText)
+                            if (isTranslating) return@ExtendedFloatingActionButton
+                            val currentArticle = article ?: return@ExtendedFloatingActionButton
+                            viewModel.translateSelectedText(
+                                text = highlightedText,
+                                articleTitle = currentArticle.title,
+                                articleContext = currentArticle.rawText.ifBlank { currentArticle.htmlContent }
+                            )
                             highlightedText = ""
                         },
-                        icon = { Icon(Icons.Outlined.Translate, contentDescription = "Dịch") },
-                        text = { Text("Dịch AI") },
+                        icon = {
+                            if (isTranslating) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Outlined.Translate, contentDescription = "Dịch")
+                            }
+                        },
+                        text = { Text(if (isTranslating) "Đang dịch" else "Dịch AI") },
                         containerColor = KotoBeeOrange,
                         contentColor = Color.White
                     )

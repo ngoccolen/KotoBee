@@ -11,7 +11,9 @@ interface CommunityRepository {
     suspend fun toggleLike(postId: String, userId: String, isLiked: Boolean): Result<Unit>
     suspend fun shareDeckWithEmail(deckId: String, friendEmail: String): Result<Unit>
     suspend fun createPost(post: CommunityPost): Result<Unit>
-    suspend fun getStudyLeaderboards(limit: Int = 10): StudyLeaderboards
+    suspend fun updatePost(postId: String, authorId: String, content: String, tags: List<String> = emptyList()): Result<Unit>
+    suspend fun deletePost(postId: String, authorId: String): Result<Unit>
+    suspend fun getStudyLeaderboards(limit: Int = 10, currentUserEmail: String? = null): StudyLeaderboards
 
     // Lấy danh sách bình luận (Realtime Flow)
     fun getComments(postId: String): Flow<List<Comment>>

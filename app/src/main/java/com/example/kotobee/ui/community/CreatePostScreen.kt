@@ -17,13 +17,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,12 +117,13 @@ fun CreatePostScreen(
             )
 
             viewModel.selectedImageUri?.let { uri ->
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(vertical = 8.dp)) {
-                    AsyncImage(
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    CommunityAttachedImage(
                         model = uri,
                         contentDescription = null,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
+                        cornerRadius = 12.dp,
+                        minHeight = 150.dp,
+                        maxHeight = 360.dp
                     )
                     IconButton(
                         onClick = {

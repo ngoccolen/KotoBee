@@ -4,7 +4,6 @@ import com.example.kotobee.model.Comment
 import com.example.kotobee.model.CommunityPost
 import com.example.kotobee.model.StudyLeaderboardEntry
 import com.example.kotobee.model.StudyLeaderboards
-import com.example.kotobee.util.StudyActivityTracker
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -75,62 +74,92 @@ class CommunityRepositoryImpl(
         }
     }
 
-    override suspend fun getStudyLeaderboards(limit: Int): StudyLeaderboards {
-        val todayKey = StudyActivityTracker.todayDateKey()
-        val weekKeys = StudyActivityTracker.currentWeekDateKeys()
-        val monthKeys = StudyActivityTracker.currentMonthDateKeys()
+    override suspend fun updatePost(
+        postId: String,
+        authorId: String,
+        content: String,
+        tags: List<String>
+    ): Result<Unit> {
+        return runCatching {
+            require(postId.isNotBlank()) { "Bài viết không hợp lệ" }
+            require(authorId.isNotBlank()) { "Bạn cần đăng nhập để chỉnh sửa bài viết" }
 
-        val entries = firestore.collection("users")
+            val postRef = firestore.collection("posts").document(postId)
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(postRef)
+                if (!snapshot.exists()) {
+                    throw IllegalStateException("Bài viết không còn tồn tại")
+                }
+                if (snapshot.postAuthorUid() != authorId) {
+                    throw SecurityException("Bạn chỉ có thể chỉnh sửa bài viết của mình")
+                }
+
+                transaction.update(
+                    postRef,
+                    mapOf(
+                        "content" to content,
+                        "tags" to tags,
+                        "updatedAt" to System.currentTimeMillis()
+                    )
+                )
+            }.await()
+        }
+    }
+
+    override suspend fun deletePost(postId: String, authorId: String): Result<Unit> {
+        return runCatching {
+            require(postId.isNotBlank()) { "Bài viết không hợp lệ" }
+            require(authorId.isNotBlank()) { "Bạn cần đăng nhập để xóa bài viết" }
+
+            val postRef = firestore.collection("posts").document(postId)
+            val snapshot = postRef.get().await()
+            if (!snapshot.exists()) {
+                throw IllegalStateException("Bài viết không còn tồn tại")
+            }
+            if (snapshot.postAuthorUid() != authorId) {
+                throw SecurityException("Bạn chỉ có thể xóa bài viết của mình")
+            }
+
+            val comments = postRef.collection("comments").get().await().documents
+            comments.chunked(450).forEach { chunk ->
+                val batch = firestore.batch()
+                chunk.forEach { comment -> batch.delete(comment.reference) }
+                batch.commit().await()
+            }
+            postRef.delete().await()
+        }
+    }
+
+    override suspend fun getStudyLeaderboards(limit: Int, currentUserEmail: String?): StudyLeaderboards {
+        val safeLimit = limit.coerceAtLeast(1)
+        val normalizedCurrentUserEmail = currentUserEmail?.trim()?.takeIf { it.isNotBlank() }
+
+        val fastEntries = firestore.collection("users")
+            .orderBy("totalStudyPoints", Query.Direction.DESCENDING)
+            .limit(safeLimit.toLong())
             .get()
             .await()
             .documents
             .map { userDoc ->
-                var todayPoints = 0
-                var weeklyPoints = 0
-                var monthlyPoints = 0
-
-                val activitySnapshot = userDoc.reference
-                    .collection("study_activity")
-                    .get()
-                    .await()
-
-                activitySnapshot.documents.forEach { activityDoc ->
-                    val date = activityDoc.getString("date") ?: activityDoc.id
-                    val points = activityDoc.numberValue("value", "points")
-
-                    if (date == todayKey) todayPoints += points
-                    if (date in weekKeys) weeklyPoints += points
-                    if (date in monthKeys) monthlyPoints += points
-                }
-
-                StudyLeaderboardEntry(
-                    userId = userDoc.getString("uid") ?: userDoc.id,
-                    username = userDoc.getString("username")
-                        ?: userDoc.getString("displayName")
-                        ?: userDoc.getString("email")?.substringBefore("@")
-                        ?: "Người học",
-                    avatarUrl = userDoc.getString("avatarUrl") ?: userDoc.getString("avatar_url") ?: "",
-                    jlptLevel = userDoc.getString("jlpt_level") ?: userDoc.getString("current_level") ?: "N5",
-                    streak = userDoc.numberValue("streak"),
-                    todayPoints = todayPoints,
-                    weeklyPoints = weeklyPoints,
-                    monthlyPoints = monthlyPoints
+                userDoc.toLeaderboardEntry(
+                    totalPoints = userDoc.numberValue("totalStudyPoints"),
+                    currentUserEmail = normalizedCurrentUserEmail
                 )
             }
 
-        return StudyLeaderboards(
-            daily = entries
-                .filter { it.todayPoints > 0 }
-                .sortedByDescending { it.todayPoints }
-                .take(limit),
-            weekly = entries
-                .filter { it.weeklyPoints > 0 }
-                .sortedByDescending { it.weeklyPoints }
-                .take(limit),
-            monthly = entries
-                .filter { it.monthlyPoints > 0 }
-                .sortedByDescending { it.monthlyPoints }
-                .take(limit)
+        val fallbackEntries = if (fastEntries.count { it.totalPoints > 0 } < safeLimit) {
+            loadLegacyLeaderboardEntries(normalizedCurrentUserEmail)
+        } else {
+            emptyList()
+        }
+        val currentUserEntry = loadCurrentUserLeaderboardEntry(normalizedCurrentUserEmail)
+        val candidates = fastEntries + fallbackEntries + listOfNotNull(currentUserEntry)
+        val currentUserId = candidates.firstOrNull { it.isCurrentUser }?.userId
+
+        return buildStudyLeaderboards(
+            candidates = candidates,
+            currentUserId = currentUserId,
+            limit = safeLimit
         )
     }
 
@@ -232,6 +261,91 @@ class CommunityRepositoryImpl(
             }.await()
         }
     }
+
+    private suspend fun loadLegacyLeaderboardEntries(currentUserEmail: String?): List<StudyLeaderboardEntry> {
+        return firestore.collection("users")
+            .get()
+            .await()
+            .documents
+            .map { userDoc ->
+                userDoc.toLeaderboardEntry(
+                    totalPoints = userDoc.totalStudyPointsForLeaderboard(),
+                    currentUserEmail = currentUserEmail
+                )
+            }
+    }
+
+    private suspend fun loadCurrentUserLeaderboardEntry(currentUserEmail: String?): StudyLeaderboardEntry? {
+        if (currentUserEmail.isNullOrBlank()) return null
+
+        val userDoc = firestore.collection("users")
+            .whereEqualTo("email", currentUserEmail)
+            .limit(1)
+            .get()
+            .await()
+            .documents
+            .firstOrNull()
+            ?: return null
+
+        return userDoc.toLeaderboardEntry(
+            totalPoints = userDoc.totalStudyPointsForLeaderboard(readLegacyWhenStoredZero = true),
+            currentUserEmail = currentUserEmail
+        )
+    }
+
+    private suspend fun DocumentSnapshot.totalStudyPointsForLeaderboard(
+        readLegacyWhenStoredZero: Boolean = false
+    ): Int {
+        val storedTotal = numberValueOrNull("totalStudyPoints")
+        if (storedTotal != null && (storedTotal > 0 || !readLegacyWhenStoredZero)) {
+            return storedTotal
+        }
+
+        val legacyTotal = reference.collection("study_activity")
+            .get()
+            .await()
+            .documents
+            .sumOf { it.numberValue("value", "points") }
+        return maxOf(storedTotal ?: 0, legacyTotal)
+    }
+
+    private fun DocumentSnapshot.toLeaderboardEntry(
+        totalPoints: Int,
+        currentUserEmail: String?
+    ): StudyLeaderboardEntry {
+        return StudyLeaderboardEntry(
+            userId = getString("uid") ?: id,
+            username = getString("username")
+                ?: getString("displayName")
+                ?: getString("email")?.substringBefore("@")
+                ?: "Người học",
+            avatarUrl = firstString(
+                "avatar_url",
+                "avatarUrl",
+                "photoUrl",
+                "photo_url",
+                "picture"
+            ),
+            jlptLevel = getString("jlpt_level") ?: getString("current_level") ?: "N5",
+            streak = numberValue("streak"),
+            totalPoints = totalPoints,
+            isCurrentUser = currentUserEmail != null && getString("email")?.trim()?.equals(currentUserEmail, ignoreCase = true) == true
+        )
+    }
+}
+
+private fun DocumentSnapshot.firstString(vararg fields: String): String {
+    fields.forEach { field ->
+        getString(field)?.takeIf { it.isNotBlank() }?.let { return it }
+    }
+    return ""
+}
+
+private fun DocumentSnapshot.postAuthorUid(): String {
+    val authorMap = get("author") as? Map<*, *>
+    return getString("author.uid")
+        ?: authorMap?.get("uid")?.toString()
+        ?: ""
 }
 
 private fun DocumentSnapshot.numberValue(vararg fields: String): Int {
@@ -242,4 +356,14 @@ private fun DocumentSnapshot.numberValue(vararg fields: String): Int {
         }
     }
     return 0
+}
+
+private fun DocumentSnapshot.numberValueOrNull(vararg fields: String): Int? {
+    fields.forEach { field ->
+        when (val value = get(field)) {
+            is Number -> return value.toInt()
+            is String -> value.toIntOrNull()?.let { return it }
+        }
+    }
+    return null
 }

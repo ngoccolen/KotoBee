@@ -69,20 +69,32 @@ object StudyActivityTracker {
         if (safePoints == 0L) return
 
         val dateKey = todayDateKey()
-        userRef.collection("study_activity")
-            .document(dateKey)
-            .set(
-                mapOf(
-                    "date" to dateKey,
-                    "value" to FieldValue.increment(safePoints),
-                    "source" to source,
-                    "sourcePoints" to mapOf(source to FieldValue.increment(safePoints)),
-                    "sources" to FieldValue.arrayUnion(source),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ),
-                SetOptions.merge()
-            )
-            .await()
+        val activityRef = userRef.collection("study_activity").document(dateKey)
+        val batch = userRef.firestore.batch()
+
+        batch.set(
+            activityRef,
+            mapOf(
+                "date" to dateKey,
+                "value" to FieldValue.increment(safePoints),
+                "source" to source,
+                "sourcePoints" to mapOf(source to FieldValue.increment(safePoints)),
+                "sources" to FieldValue.arrayUnion(source),
+                "updatedAt" to FieldValue.serverTimestamp()
+            ),
+            SetOptions.merge()
+        )
+
+        batch.set(
+            userRef,
+            mapOf(
+                "totalStudyPoints" to FieldValue.increment(safePoints),
+                "lastStudyActivityAt" to FieldValue.serverTimestamp()
+            ),
+            SetOptions.merge()
+        )
+
+        batch.commit().await()
     }
 
     private fun dateKeysBetween(start: Calendar, end: Calendar): Set<String> {

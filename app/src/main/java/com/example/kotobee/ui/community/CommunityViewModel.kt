@@ -26,6 +26,7 @@ sealed class CommunityUiState {
 data class StudyLeaderboardUiState(
     val isLoading: Boolean = true,
     val leaderboards: StudyLeaderboards = StudyLeaderboards(),
+    val hasLoaded: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -52,6 +53,7 @@ class CommunityViewModel(
 
     private var currentPosts = mutableListOf<CommunityPost>()
     private var isLoadingMore = false
+    private var isLoadingLeaderboards = false
     private var hasMorePosts = true
 
     init {
@@ -102,19 +104,37 @@ class CommunityViewModel(
         }
     }
 
+    fun loadStudyLeaderboardsIfNeeded() {
+        if (_leaderboardState.value.hasLoaded || isLoadingLeaderboards) return
+        refreshStudyLeaderboards()
+    }
+
     fun refreshStudyLeaderboards() {
+        if (isLoadingLeaderboards) return
+
         viewModelScope.launch {
-            _leaderboardState.value = _leaderboardState.value.copy(isLoading = true, errorMessage = null)
+            isLoadingLeaderboards = true
+            val currentState = _leaderboardState.value
+            _leaderboardState.value = currentState.copy(
+                isLoading = currentState.leaderboards.entries.isEmpty(),
+                errorMessage = null
+            )
             try {
                 _leaderboardState.value = StudyLeaderboardUiState(
                     isLoading = false,
-                    leaderboards = repository.getStudyLeaderboards()
+                    leaderboards = repository.getStudyLeaderboards(
+                        currentUserEmail = auth.currentUser?.email
+                    ),
+                    hasLoaded = true
                 )
             } catch (e: Exception) {
                 _leaderboardState.value = _leaderboardState.value.copy(
                     isLoading = false,
+                    hasLoaded = currentState.hasLoaded,
                     errorMessage = e.message ?: "Lỗi tải bảng xếp hạng"
                 )
+            } finally {
+                isLoadingLeaderboards = false
             }
         }
     }
@@ -169,6 +189,61 @@ class CommunityViewModel(
                     if (item.id == post.id) item.toggledLike(userId, !wasLiked) else item
                 }.toMutableList()
                 _uiState.value = CommunityUiState.Success(currentPosts.toList())
+            }
+        }
+    }
+
+    fun canManagePost(post: CommunityPost): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
+        return post.id.isNotBlank() && post.author.uid == userId
+    }
+
+    fun editPost(post: CommunityPost, content: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val trimmedContent = content.trim()
+        if (!canManagePost(post) || (trimmedContent.isBlank() && post.imageUrls.isEmpty())) return
+
+        val previousPosts = currentPosts.toList()
+        val updatedAt = System.currentTimeMillis()
+        currentPosts = currentPosts.map { item ->
+            if (item.id == post.id) {
+                item.copy(content = trimmedContent, updatedAt = updatedAt)
+            } else {
+                item
+            }
+        }.toMutableList()
+        _uiState.value = CommunityUiState.Success(currentPosts.toList())
+
+        viewModelScope.launch {
+            val result = repository.updatePost(
+                postId = post.id,
+                authorId = userId,
+                content = trimmedContent,
+                tags = post.tags
+            )
+            if (result.isFailure) {
+                currentPosts = previousPosts.toMutableList()
+                _uiState.value = CommunityUiState.Success(currentPosts.toList())
+            }
+        }
+    }
+
+    fun deletePost(post: CommunityPost) {
+        val userId = auth.currentUser?.uid ?: return
+        if (!canManagePost(post)) return
+
+        val previousPosts = currentPosts.toList()
+        val previousComments = _commentsMap.value
+        currentPosts = currentPosts.filterNot { it.id == post.id }.toMutableList()
+        _uiState.value = CommunityUiState.Success(currentPosts.toList())
+        _commentsMap.value = _commentsMap.value - post.id
+
+        viewModelScope.launch {
+            val result = repository.deletePost(postId = post.id, authorId = userId)
+            if (result.isFailure) {
+                currentPosts = previousPosts.toMutableList()
+                _uiState.value = CommunityUiState.Success(currentPosts.toList())
+                _commentsMap.value = previousComments
             }
         }
     }

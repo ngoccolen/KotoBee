@@ -73,6 +73,7 @@ class LoginViewModel : ViewModel() {
                 if (user != null && user.email != null) {
                     // Tạo username tạm từ email (VD: abc@gmail.com -> abc)
                     val generatedUsername = user.email!!.substringBefore("@")
+                    val googleAvatarUrl = user.photoUrl?.toString().orEmpty()
 
                     val userDocRef = db.collection("users").document(generatedUsername)
                     val snapshot = userDocRef.get().await()
@@ -83,6 +84,8 @@ class LoginViewModel : ViewModel() {
                             "username" to generatedUsername, // Bắt buộc phải có để HomeViewModel đọc được
                             "email" to user.email,
                             "displayName" to (user.displayName ?: generatedUsername),
+                            "avatar_url" to googleAvatarUrl,
+                            "avatarUrl" to googleAvatarUrl,
                             "authProvider" to "google",
                             "jlpt_level" to "N5",            // Thêm các thông số mặc định giống UserProfile
                             "placement_level" to "",
@@ -91,9 +94,17 @@ class LoginViewModel : ViewModel() {
                             "onboarding_completed" to true,
                             "learned_vocab" to 0,
                             "streak" to 0,
+                            "totalStudyPoints" to 0,
                             "role" to "user"
                         )
                         userDocRef.set(userData).await()
+                    } else if (googleAvatarUrl.isNotBlank() && snapshot.currentAvatarUrl().isBlank()) {
+                        userDocRef.update(
+                            mapOf(
+                                "avatar_url" to googleAvatarUrl,
+                                "avatarUrl" to googleAvatarUrl
+                            )
+                        ).await()
                     }
                 }
                 _authState.value = AuthState.Success(isNewUser = false)
@@ -169,4 +180,11 @@ class LoginViewModel : ViewModel() {
             }
         }
     }
+}
+
+private fun com.google.firebase.firestore.DocumentSnapshot.currentAvatarUrl(): String {
+    val avatarFields = listOf("avatar_url", "avatarUrl", "photoUrl", "photo_url", "picture")
+    return avatarFields.firstNotNullOfOrNull { field ->
+        getString(field)?.takeIf { it.isNotBlank() }
+    }.orEmpty()
 }

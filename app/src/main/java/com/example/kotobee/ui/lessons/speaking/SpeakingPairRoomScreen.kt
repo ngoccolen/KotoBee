@@ -93,6 +93,7 @@ import com.example.kotobee.data.model.SpeakingPairHistory
 import com.example.kotobee.data.model.SpeakingPairMessage
 import com.example.kotobee.data.model.SpeakingPairParticipant
 import com.example.kotobee.data.model.SpeakingPairRoom
+import com.example.kotobee.data.model.SpeakingPairTurnFeedback
 import com.example.kotobee.ui.home.CardBorderColor
 import com.example.kotobee.ui.home.ProgressPrimary
 import com.example.kotobee.ui.home.ProgressTrack
@@ -629,6 +630,7 @@ private fun SpeakingPairChatContent(
                 PairMessageBubble(
                     message = message,
                     isMine = message.senderUserId == currentUserId,
+                    feedback = if (message.senderUserId == currentUserId) state.turnFeedback[message.id] else null,
                     isPlaying = playingUrl == message.audioUrl,
                     onPlayAudio = { playAudio(message.audioUrl) }
                 )
@@ -821,6 +823,7 @@ private fun SpeakingPairScenarioCard(room: SpeakingPairRoom, participants: List<
 private fun PairMessageBubble(
     message: SpeakingPairMessage,
     isMine: Boolean,
+    feedback: SpeakingPairTurnFeedback?,
     isPlaying: Boolean,
     onPlayAudio: () -> Unit
 ) {
@@ -878,6 +881,86 @@ private fun PairMessageBubble(
                     color = if (isMine) Color.White else TextDark,
                     fontSize = 15.sp,
                     lineHeight = 21.sp
+                )
+                if (feedback != null) {
+                    PairTurnFeedbackBlock(feedback = feedback, isMine = isMine)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PairTurnFeedbackBlock(feedback: SpeakingPairTurnFeedback, isMine: Boolean) {
+    Spacer(modifier = Modifier.height(10.dp))
+    HorizontalDivider(color = if (isMine) Color.White.copy(alpha = 0.28f) else CardBorderColor)
+    Spacer(modifier = Modifier.height(8.dp))
+
+    when (feedback.status) {
+        "pending" -> Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(
+                color = if (isMine) Color.White else ProgressPrimary,
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "AI đang kiểm tra...",
+                color = if (isMine) Color.White.copy(alpha = 0.82f) else TextGray,
+                fontSize = 12.sp
+            )
+        }
+        "error" -> Text(
+            feedback.errorMessage.ifBlank { "AI chưa thể kiểm tra lượt nói này." },
+            color = if (isMine) Color.White.copy(alpha = 0.82f) else ProgressPrimary,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
+        )
+        else -> {
+            if (feedback.summaryVi.isNotBlank()) {
+                Text(
+                    feedback.summaryVi,
+                    color = if (isMine) Color.White.copy(alpha = 0.9f) else TextDark,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 17.sp
+                )
+            }
+            if (feedback.correctedSentenceJa.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "Sửa: ${feedback.correctedSentenceJa}",
+                    color = if (isMine) Color.White else ProgressPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 17.sp
+                )
+            }
+            if (feedback.naturalSentenceJa.isNotBlank() && feedback.naturalSentenceJa != feedback.correctedSentenceJa) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Tự nhiên hơn: ${feedback.naturalSentenceJa}",
+                    color = if (isMine) Color.White.copy(alpha = 0.88f) else TextGray,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+            }
+            if (feedback.grammarFeedbackVi.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Ngữ pháp: ${feedback.grammarFeedbackVi}",
+                    color = if (isMine) Color.White.copy(alpha = 0.82f) else TextGray,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+            }
+            if (feedback.pronunciationFeedbackVi.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Phát âm: ${feedback.pronunciationFeedbackVi}",
+                    color = if (isMine) Color.White.copy(alpha = 0.82f) else TextGray,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
                 )
             }
         }
