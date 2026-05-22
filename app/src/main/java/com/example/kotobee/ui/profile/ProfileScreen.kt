@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
@@ -85,10 +86,11 @@ import com.example.kotobee.data.model.Badge
 import androidx.compose.ui.graphics.Brush
 
 object ColorPalette {
-    val Background = Color.White
+    val Background = Color(0xFFFAFAFA)
     val CardBackground = Color.White
     val Primary = Color(0xFFE53935)
-    val Border = Color(0xFFE53935)
+    val Border = Color(0xFFEEEEEE)
+    val BorderAccent = Color(0xFFFFD5D5)
     val MutedSurface = Color(0xFFF8FAFC)
     val Text = Color(0xFF333333)
     val TextSub = Color(0xFF757575)
@@ -150,7 +152,7 @@ fun ProfileScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item { Spacer(modifier = Modifier.height(8.dp)) }
-        item { ProfileHeader(profileState) }
+        item { ProfileHeader(profileState, onEditClick = { showEditDialog = true }) }
         item { Spacer(modifier = Modifier.height(24.dp)) }
         item { QuickStatsRow(profileState) }
         item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -327,66 +329,109 @@ private fun profileTextFieldColors() = OutlinedTextFieldDefaults.colors(
 )
 
 @Composable
-fun ProfileHeader(state: ProfileState) {
+fun ProfileHeader(state: ProfileState, onEditClick: () -> Unit) {
     val context = LocalContext.current
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(140.dp)) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(state.avatarUrl.ifEmpty { R.drawable.jp_vocabulary })
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "User Avatar",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(110.dp)
-                    .clip(CircleShape)
-                    .border(4.dp, ColorPalette.Background, CircleShape)
-            )
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFFEF5350), Color(0xFFC62828))
+                    )
+                )
+                .padding(24.dp)
+        ) {
             Box(
                 modifier = Modifier
-                    .size(130.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .border(3.dp, ColorPalette.Primary, CircleShape)
-            )
-            Surface(
-                color = ColorPalette.Primary,
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(2.dp, Color.White),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp)
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .clickable { onEditClick() }
+                    .align(Alignment.TopEnd),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(12.dp)
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Chỉnh sửa hồ sơ",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(130.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = state.jlptLevel,
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(state.avatarUrl.ifEmpty { R.drawable.jp_vocabulary })
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "User Avatar",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(106.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, Color.White, CircleShape)
                     )
+                    Surface(
+                        color = ColorPalette.Primary,
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(2.dp, Color.White),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = state.jlptLevel,
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = state.username.ifEmpty { "Người học" },
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = state.email,
+                    fontSize = 14.sp,
+                    color = Color(0xFFFFCDD2),
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = "Hồ sơ cá nhân", fontSize = 16.sp, color = ColorPalette.TextSub)
-        Text(
-            text = state.username.ifEmpty { "Người học" },
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = ColorPalette.Text
-        )
-        Text(text = state.email, fontSize = 14.sp, color = ColorPalette.Primary)
     }
 }
 
@@ -413,20 +458,20 @@ fun QuickStatsRow(state: ProfileState) {
 fun LearningSummaryCard(state: ProfileState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, ColorPalette.Border),
         colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Tổng quan học tập",
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = ColorPalette.Text
             )
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 SummaryMetric(
                     icon = Icons.Filled.Star,
                     value = state.totalStudyPoints.toString(),
@@ -440,8 +485,8 @@ fun LearningSummaryCard(state: ProfileState) {
                     modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 SummaryMetric(
                     icon = Icons.Filled.CheckCircle,
                     value = "${state.completedTasks}/${state.totalTasks}",
@@ -468,8 +513,8 @@ private fun SummaryMetric(
 ) {
     Surface(
         modifier = modifier.heightIn(min = 82.dp),
-        color = Color.White,
-        shape = RoundedCornerShape(12.dp),
+        color = ColorPalette.MutedSurface,
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, ColorPalette.Border)
     ) {
         Row(
@@ -481,11 +526,16 @@ private fun SummaryMetric(
             Surface(
                 color = Color.White,
                 shape = CircleShape,
-                border = BorderStroke(1.dp, ColorPalette.Primary),
-                modifier = Modifier.size(34.dp)
+                border = BorderStroke(1.dp, ColorPalette.BorderAccent),
+                modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = ColorPalette.Primary, modifier = Modifier.size(18.dp))
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = ColorPalette.Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(10.dp))
@@ -493,12 +543,18 @@ private fun SummaryMetric(
                 Text(
                     text = value,
                     color = ColorPalette.Text,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(text = label, color = ColorPalette.TextSub, fontSize = 11.sp, lineHeight = 14.sp)
+                Text(
+                    text = label,
+                    color = ColorPalette.TextSub,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
@@ -508,34 +564,59 @@ private fun SummaryMetric(
 fun StatCard(icon: ImageVector, value: String, description: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.heightIn(min = 128.dp),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, ColorPalette.Border),
-        colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.Start
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFFFFF5F5), Color(0xFFFFEBEE))
+                    )
+                )
+                .border(1.dp, ColorPalette.BorderAccent, RoundedCornerShape(20.dp))
+                .padding(16.dp)
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = ColorPalette.Primary,
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ColorPalette.Text)
-            Text(
-                text = description,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                color = ColorPalette.TextSub,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.Start
+            ) {
+                Surface(
+                    color = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp),
+                    shadowElevation = 1.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = ColorPalette.Primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = value,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = ColorPalette.Text
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = ColorPalette.TextSub,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -544,32 +625,61 @@ fun StatCard(icon: ImageVector, value: String, description: String, modifier: Mo
 fun StreakOverviewCard(state: ProfileState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, ColorPalette.Border),
-        colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
+        shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFFFFF3E0), Color(0xFFFFEBEE))
+                    )
+                )
+                .border(1.dp, Color(0xFFFFE0B2), RoundedCornerShape(22.dp))
+                .padding(20.dp)
         ) {
-            Surface(
-                color = Color.White,
-                shape = CircleShape,
-                border = BorderStroke(1.dp, ColorPalette.Primary),
-                modifier = Modifier.size(58.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.LocalFireDepartment, contentDescription = null, tint = ColorPalette.Primary, modifier = Modifier.size(32.dp))
+                Surface(
+                    color = Color.White,
+                    shape = CircleShape,
+                    border = BorderStroke(1.5.dp, Color(0xFFFF9800)),
+                    modifier = Modifier.size(58.dp),
+                    shadowElevation = 1.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
                 }
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Streak hiện tại", color = ColorPalette.TextSub, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("${state.streak} ngày", color = ColorPalette.Text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Học flashcard, làm nhiệm vụ hoặc luyện kanji để giữ chuỗi.", color = ColorPalette.TextSub, fontSize = 12.sp)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Streak hiện tại",
+                        color = Color(0xFFE65100),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${state.streak} ngày",
+                        color = ColorPalette.Text,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "Học flashcard, làm nhiệm vụ hoặc luyện kanji để giữ chuỗi.",
+                        color = ColorPalette.TextSub,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
@@ -585,10 +695,10 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, ColorPalette.Border),
         colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -599,40 +709,51 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                 Text(
                     text = "Bảng theo dõi học tập",
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = ColorPalette.Text
                 )
-                Text(text = "Tuần này", fontSize = 14.sp, color = ColorPalette.Primary)
+                Text(
+                    text = "Tuần này",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ColorPalette.Primary
+                )
             }
             Text(
-                "Mỗi cột là điểm học trong một ngày, từ T2 đến CN.",
+                text = "Mỗi cột là điểm học trong một ngày, từ T2 đến CN.",
                 color = ColorPalette.TextSub,
                 fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(top = 4.dp)
             )
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(12.dp),
+                color = ColorPalette.MutedSurface,
+                shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, ColorPalette.Border)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Tổng tuần này", color = ColorPalette.TextSub, fontSize = 12.sp)
                     Text(
-                        "$currentWeekPoints điểm",
+                        text = "Tổng tuần này",
+                        color = ColorPalette.TextSub,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "$currentWeekPoints điểm",
                         color = ColorPalette.Primary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -660,14 +781,21 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                             } else {
                                 3.dp
                             }
+                            val barBrush = if (day.value > 0) {
+                                if (day.isToday) {
+                                    Brush.verticalGradient(listOf(Color(0xFFEF5350), Color(0xFFD32F2F)))
+                                } else {
+                                    Brush.verticalGradient(listOf(Color(0xFFFFCDD2), Color(0xFFFFEBEE)))
+                                }
+                            } else {
+                                Brush.verticalGradient(listOf(Color(0xFFF5F5F5), Color(0xFFEEEEEE)))
+                            }
                             Box(
                                 modifier = Modifier
                                     .width(16.dp)
                                     .height(barHeight)
                                     .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                    .background(
-                                        if (day.isToday) ColorPalette.Primary else ColorPalette.Primary.copy(alpha = 0.28f)
-                                    )
+                                    .background(barBrush)
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -675,7 +803,7 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
                             text = day.day,
                             color = if (day.isToday) ColorPalette.Primary else ColorPalette.TextSub,
                             fontSize = 10.sp,
-                            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Medium,
                             maxLines = 1
                         )
                     }
@@ -689,23 +817,23 @@ fun ActivityChartCard(activityData: List<ActivityDay>) {
 fun RecentActivityCard(activities: List<RecentActivity>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, ColorPalette.Border),
         colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Hoạt động gần đây",
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = ColorPalette.Text
             )
             Spacer(modifier = Modifier.height(8.dp))
             activities.forEachIndexed { index, activity ->
                 RecentActivityRow(activity)
                 if (index < activities.lastIndex) {
-                    Divider(color = ColorPalette.Border.copy(alpha = 0.18f), thickness = 1.dp)
+                    Divider(color = ColorPalette.Border, thickness = 1.dp)
                 }
             }
         }
@@ -714,30 +842,34 @@ fun RecentActivityCard(activities: List<RecentActivity>) {
 
 @Composable
 private fun RecentActivityRow(activity: RecentActivity) {
-    val icon = when (activity.type) {
-        "streak" -> Icons.Filled.LocalFireDepartment
-        "task" -> Icons.Filled.CheckCircle
-        "study" -> Icons.Filled.MenuBook
-        else -> Icons.Filled.Info
+    val (icon, circleBg, accentColor) = when (activity.type) {
+        "streak" -> Triple(Icons.Filled.LocalFireDepartment, Color(0xFFFFF3E0), Color(0xFFFF9800))
+        "task" -> Triple(Icons.Filled.CheckCircle, Color(0xFFE8F5E9), Color(0xFF4CAF50))
+        "study" -> Triple(Icons.Filled.MenuBook, Color(0xFFE3F2FD), Color(0xFF2196F3))
+        else -> Triple(Icons.Filled.Info, Color(0xFFECEFF1), Color(0xFF607D8B))
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 10.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            color = Color.White,
+            color = circleBg,
             shape = CircleShape,
-            border = BorderStroke(1.dp, ColorPalette.Primary),
-            modifier = Modifier.size(42.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = ColorPalette.Primary, modifier = Modifier.size(22.dp))
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = activity.title,
@@ -745,10 +877,12 @@ private fun RecentActivityRow(activity: RecentActivity) {
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = activity.subtitle,
                 color = ColorPalette.TextSub,
                 fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -756,9 +890,9 @@ private fun RecentActivityRow(activity: RecentActivity) {
         if (activity.meta.isNotBlank()) {
             Text(
                 text = activity.meta,
-                color = ColorPalette.Primary,
+                color = accentColor,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -787,10 +921,10 @@ fun SettingsList(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, ColorPalette.Border),
         colors = CardDefaults.cardColors(containerColor = ColorPalette.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             settingItems.forEach { item ->
@@ -802,6 +936,10 @@ fun SettingsList(
 
 @Composable
 fun SettingItemRow(item: SettingItem) {
+    val isSignOut = item.name == "Đăng xuất"
+    val circleBg = if (isSignOut) Color(0xFFFFEBEE) else Color(0xFFFFF5F5)
+    val accentColor = if (isSignOut) Color(0xFFD32F2F) else ColorPalette.Primary
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -810,16 +948,15 @@ fun SettingItemRow(item: SettingItem) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            color = Color.White,
+            color = circleBg,
             shape = CircleShape,
-            border = BorderStroke(1.dp, if (item.name == "Đăng xuất") Color.Red else ColorPalette.Primary),
             modifier = Modifier.size(40.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     item.icon,
                     contentDescription = null,
-                    tint = if (item.name == "Đăng xuất") Color.Red else ColorPalette.Primary,
+                    tint = accentColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -828,15 +965,15 @@ fun SettingItemRow(item: SettingItem) {
         Text(
             text = item.name,
             fontSize = 16.sp,
-            color = if (item.name == "Đăng xuất") Color.Red else ColorPalette.Text,
-            fontWeight = FontWeight.Medium,
+            color = accentColor,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f)
         )
         Icon(
             Icons.Filled.ArrowForwardIos,
             contentDescription = null,
-            tint = Color(0xFFDDDDDD),
-            modifier = Modifier.size(16.dp)
+            tint = Color(0xFFCCCCCC),
+            modifier = Modifier.size(14.dp)
         )
     }
 }
