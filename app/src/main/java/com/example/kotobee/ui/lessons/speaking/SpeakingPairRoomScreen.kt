@@ -185,14 +185,6 @@ private fun SpeakingPairHomeContent(
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
-                Text(
-                    "Tạo phòng riêng để hai người tự nói chuyện, ghi âm theo lượt và lưu lại transcript tiếng Nhật.",
-                    color = TextGray,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp
-                )
-            }
 
             state.errorMessage?.let { error ->
                 item { SpeakingPairNotice(text = error, color = Color(0xFFC62828)) }
@@ -235,12 +227,6 @@ private fun SpeakingPairHomeContent(
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Tạo phòng mới", color = TextDark, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Không cần chủ đề. Bạn và người còn lại tự chọn nội dung để luyện nói.",
-                                color = TextGray,
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp
-                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(14.dp))
@@ -255,7 +241,7 @@ private fun SpeakingPairHomeContent(
                         } else {
                             Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Tạo phòng tự do", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Tạo phòng", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -291,7 +277,7 @@ private fun SpeakingPairLobbyContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Lobby giao tiếp", fontWeight = FontWeight.Bold, color = TextDark) },
+                title = { Text("Tạo phòng", fontWeight = FontWeight.Bold, color = TextDark) },
                 navigationIcon = {
                     IconButton(onClick = onLeave) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextDark)

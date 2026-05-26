@@ -124,8 +124,7 @@ class LoginViewModel : ViewModel() {
         .writeTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
-    // THAY IP BẰNG IPv4 CỦA MÁY TÍNH BẠN TÌM ĐƯỢC Ở BƯỚC 1
-    private val baseUrl = "https://kotobeebe-production.up.railway.app/api"
+    private val baseUrl = "https://kotobee-be.onrender.com/api"
 
     fun requestOtp(email: String, onResult: (Boolean, String) -> Unit) {
         if (email.isBlank()) {

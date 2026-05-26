@@ -148,7 +148,6 @@ private fun SkillHorizontalCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 112.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, CardBorderColor),
@@ -161,6 +160,7 @@ private fun SkillHorizontalCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 112.dp)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
